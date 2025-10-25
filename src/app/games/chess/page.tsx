@@ -27,14 +27,14 @@ interface GameResult {
   evaluationInPawns?: string;
 }
 
-// Chess piece Unicode characters
+// Chess piece Unicode characters (using solid/filled pieces)
 const PIECE_SYMBOLS: Record<string, string> = {
-  K: "♔",
-  Q: "♕",
-  R: "♖",
-  B: "♗",
-  N: "♘",
-  P: "♙",
+  K: "♚",
+  Q: "♛",
+  R: "♜",
+  B: "♝",
+  N: "♞",
+  P: "♟",
   k: "♚",
   q: "♛",
   r: "♜",
@@ -208,7 +208,7 @@ export default function ChessPage() {
                 setCurrentMoveIndex(moves.length);
                 
                 // Small delay for visual effect
-                await new Promise((resolve) => setTimeout(resolve, 200));
+                await new Promise((resolve) => setTimeout(resolve, 100));
               } else if (data.type === "evaluating") {
                 // Stockfish evaluation in progress
                 setIsEvaluating(true);
@@ -644,7 +644,7 @@ export default function ChessPage() {
                   <span className="text-xs">Show Reasoning</span>
                 </label>
               </div>
-              <div className="max-h-96 overflow-y-auto">
+              <div className="max-h-96 overflow-y-auto overflow-x-auto">
                 <table className="w-full">
                   <thead className="sticky top-0 bg-[#111111] border-b border-gray-800/50">
                     <tr>
@@ -657,18 +657,32 @@ export default function ChessPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                         Player
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                        Status
-                      </th>
+                      {showReasonings && (
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                          Reasoning
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800/30">
                     {gameResult.moves.map((move, index) => (
                       <tr key={index} className="hover:bg-gray-800/20 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm font-mono text-gray-300">
-                            {move.moveNumber}.{move.player === "black" ? ".." : ""}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-mono text-gray-300">
+                              {move.moveNumber}.{move.player === "black" ? ".." : ""}
+                            </span>
+                            {move.isCheckmate && (
+                              <span className="text-xs font-medium text-red-400">
+                                Checkmate
+                              </span>
+                            )}
+                            {move.isCheck && !move.isCheckmate && (
+                              <span className="text-xs font-medium text-yellow-400">
+                                Check
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
@@ -686,48 +700,18 @@ export default function ChessPage() {
                             {move.player === "white" ? "White" : "Black"}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {move.isCheckmate ? (
-                            <span className="text-xs font-medium text-red-400">
-                              Checkmate
-                            </span>
-                          ) : move.isCheck ? (
-                            <span className="text-xs font-medium text-yellow-400">
-                              Check
-                            </span>
-                          ) : (
-                            <span className="text-xs text-gray-600">-</span>
-                          )}
-                        </td>
+                        {showReasonings && (
+                          <td className="px-6 py-4 max-w-md">
+                            <p className="text-xs text-gray-400 leading-relaxed">
+                              {move.reasoning}
+                            </p>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              
-              {showReasonings && (
-                <div className="p-6 border-t border-gray-800/50 space-y-4">
-                  {gameResult.moves.map((move, index) => (
-                    <div key={`reasoning-${index}`} className="space-y-2">
-                      <div className="text-xs font-mono text-gray-500">
-                        {move.moveNumber}.{move.player === "black" ? ".." : ""} {move.san}
-                      </div>
-                      <div className="bg-black/40 border border-gray-800 rounded p-3">
-                        <div
-                          className={`text-xs font-medium mb-1 uppercase tracking-wider ${
-                            move.player === "white" ? "text-blue-400" : "text-red-400"
-                          }`}
-                        >
-                          {move.player === "white" ? "White" : "Black"}
-                        </div>
-                        <p className="text-xs text-gray-400 leading-relaxed">
-                          {move.reasoning}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         )}

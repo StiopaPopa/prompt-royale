@@ -7,12 +7,43 @@ const openai = new OpenAI({
     "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",
 });
 
-// Material and positional evaluation function
-// This is a simplified evaluation that considers:
-// 1. Material count (pieces)
-// 2. Piece positioning (center control, development)
-// 3. King safety
-function evaluatePosition(chess: Chess): number {
+// Stockfish evaluation function using online API
+async function evaluatePosition(fen: string): Promise<number> {
+  try {
+    const depth = 15; // Use depth 15 for good balance of speed and accuracy
+    const url = `https://stockfish.online/api/s/v2.php?fen=${encodeURIComponent(fen)}&depth=${depth}`;
+    
+    console.log(`Calling Stockfish API with FEN: ${fen}`);
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.success) {
+      // Check if there's a mate score
+      if (data.mate !== null) {
+        // Mate score: positive means white is mating, negative means black is mating
+        const mateValue = data.mate > 0 ? 10000 : -10000;
+        console.log(`Stockfish found mate in ${data.mate}: ${mateValue}`);
+        return mateValue;
+      }
+      
+      // Regular evaluation in pawns (convert to centipawns)
+      const evaluation = data.evaluation * 100;
+      console.log(`Stockfish evaluation: ${data.evaluation} pawns (${evaluation} centipawns)`);
+      return evaluation;
+    } else {
+      console.error("Stockfish API returned error");
+      return 0;
+    }
+  } catch (error) {
+    console.error("Error calling Stockfish API:", error);
+    // Fallback to 0 if API fails
+    return 0;
+  }
+}
+
+// Fallback material evaluation (not used, but kept for reference)
+function evaluatePositionMaterial(chess: Chess): number {
   const board = chess.board();
   
   const pieceValues: Record<string, number> = {
@@ -125,8 +156,10 @@ function evaluatePosition(chess: Chess): number {
   evaluation += chess.turn() === 'w' ? 10 : -10;
 
   // Bonus for castling rights
-  if (chess.getCastlingRights('w').length > 0) evaluation += 20;
-  if (chess.getCastlingRights('b').length > 0) evaluation -= 20;
+  const whiteCastling = chess.getCastlingRights('w');
+  const blackCastling = chess.getCastlingRights('b');
+  if (whiteCastling.k || whiteCastling.q) evaluation += 20;
+  if (blackCastling.k || blackCastling.q) evaluation -= 20;
 
   // Penalty for being in check
   if (chess.isCheck()) {
@@ -212,7 +245,7 @@ Remember: You must choose from these legal moves: ${legalMovesString}`;
 
     // Parse the response
     const moveMatch = responseText.match(/MOVE:\s*([a-h][1-8][a-h][1-8][qrbn]?)/i);
-    const reasoningMatch = responseText.match(/REASONING:\s*(.+)/is);
+    const reasoningMatch = responseText.match(/REASONING:\s*([\s\S]+)/i);
 
     let move = "";
     if (moveMatch) {
@@ -307,7 +340,7 @@ export async function POST(request: NextRequest) {
 
           // Make the move
           try {
-            const result = chess.move(move, { sloppy: true });
+            const result = chess.move(move);
             if (result) {
               const moveResult: MoveResult = {
                 moveNumber: Math.floor(moves.length / 2) + 1,
@@ -391,8 +424,8 @@ export async function POST(request: NextRequest) {
             )
           );
 
-          evaluation = evaluatePosition(chess);
-          console.log(`Position evaluation: ${evaluation} centipawns`);
+          evaluation = await evaluatePosition(chess.fen());
+          console.log(`Stockfish evaluation: ${evaluation} centipawns`);
 
           // Determine winner based on evaluation
           // Evaluation is in centipawns (1/100th of a pawn)

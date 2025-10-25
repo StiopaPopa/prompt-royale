@@ -1,100 +1,158 @@
-import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
 
 const openai = new OpenAI({
-  apiKey: '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',
+  apiKey:
+    "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",
 });
 
-type Move = 'rock' | 'paper' | 'scissors';
+type Move = "rock" | "paper" | "scissors";
 
 interface RoundResult {
   round: number;
   player1Move: Move;
   player2Move: Move;
-  winner: 'player1' | 'player2' | 'tie';
+  winner: "player1" | "player2" | "tie";
+  player1Reasoning: string;
+  player2Reasoning: string;
 }
 
-function determineWinner(move1: Move, move2: Move): 'player1' | 'player2' | 'tie' {
-  if (move1 === move2) return 'tie';
+function determineWinner(
+  move1: Move,
+  move2: Move
+): "player1" | "player2" | "tie" {
+  if (move1 === move2) return "tie";
   if (
-    (move1 === 'rock' && move2 === 'scissors') ||
-    (move1 === 'paper' && move2 === 'rock') ||
-    (move1 === 'scissors' && move2 === 'paper')
+    (move1 === "rock" && move2 === "scissors") ||
+    (move1 === "paper" && move2 === "rock") ||
+    (move1 === "scissors" && move2 === "paper")
   ) {
-    return 'player1';
+    return "player1";
   }
-  return 'player2';
+  return "player2";
 }
 
 function parseMove(text: string): Move {
   const lowerText = text.toLowerCase();
-  if (lowerText.includes('rock')) return 'rock';
-  if (lowerText.includes('paper')) return 'paper';
-  if (lowerText.includes('scissors')) return 'scissors';
-  
+  if (lowerText.includes("rock")) return "rock";
+  if (lowerText.includes("paper")) return "paper";
+  if (lowerText.includes("scissors")) return "scissors";
+
   // Default to rock if no valid move is found
-  return 'rock';
+  return "rock";
 }
 
-// Get a batch of moves with context from previous rounds
-async function getBatchOfMoves(
-  prompt: string, 
-  startRound: number, 
-  batchSize: number,
-  context: string,
-  score: { wins: number; losses: number; ties: number }
-): Promise<Move[]> {
+// Get a single move with history context and reasoning
+async function getMove(
+  prompt: string,
+  round: number,
+  history: RoundResult[],
+  playerNumber: 1 | 2
+): Promise<{ move: Move; reasoning: string }> {
   try {
+    const historyText =
+      history.length > 0
+        ? history
+            .map((r) => {
+              const myMove = playerNumber === 1 ? r.player1Move : r.player2Move;
+              const opponentMove =
+                playerNumber === 1 ? r.player2Move : r.player1Move;
+              const result =
+                r.winner === "tie"
+                  ? "TIE"
+                  : r.winner === `player${playerNumber}`
+                  ? "WON"
+                  : "LOST";
+              return `Round ${r.round}: You played ${myMove}, opponent played ${opponentMove} → ${result}`;
+            })
+            .join("\n")
+        : "No previous rounds";
+
     const systemMessage = `You are playing Rock Paper Scissors. Your strategy: ${prompt}
 
-Current Status:
-- Rounds ${startRound} to ${startRound + batchSize - 1} of 100
-- Your score: ${score.wins} wins, ${score.losses} losses, ${score.ties} ties
-${context ? `\nComplete game history so far:\n${context}` : '\nThis is the first batch - no history yet.'}
+IMPORTANT: You are currently on ROUND ${round} of 10 total rounds.
+- Round 1 = first move
+- Round 2 = second move  
+- Round 3 = third move
+- etc.
 
-Follow your strategy while adapting to the opponent's patterns. Analyze their full history to identify any patterns or tendencies.`;
+Previous rounds:
+${historyText}
 
-    const userMessage = `Generate exactly ${batchSize} moves for the next ${batchSize} rounds.
+When interpreting your strategy:
+- "first X moves" means rounds 1 through X
+- "second X moves" means rounds X+1 through 2X
+- "last X moves" means rounds (10-X+1) through 10
+- For fractions like "10/3", round to the nearest whole number (10/3 ≈ 3)
+- Example: "first 10/3 moves rock" = first 3 moves rock (rounds 1, 2, 3)
+- Example: "second 10/3 moves paper" = next 3 moves paper (rounds 4, 5, 6)
+- Example: "last 10/3 moves scissors" = last 3 moves scissors (rounds 8, 9, 10)
 
-Format: comma-separated list with ONLY the moves (rock, paper, or scissors).
-Example: rock,paper,scissors,rock,paper
+For DYNAMIC strategies based on previous moves/outcomes:
+- "if I won last round" = check if the previous round's winner was you
+- "if I lost last round" = check if the previous round's winner was your opponent
+- "if it was a tie" = check if the previous round's winner was "tie"
+- "my last move" = the move you played in the most recent round
+- "opponent's last move" = the move your opponent played in the most recent round
+- "what would beat X" = the move that beats X (rock beats scissors, scissors beats paper, paper beats rock)
+- "what would lose to X" = the move that loses to X (scissors loses to rock, paper loses to scissors, rock loses to paper)
+- "same as last time" = repeat your previous move
+- "opposite of last time" = play a different move than your previous move
 
-Your ${batchSize} moves:`;
+GAME RULES REMINDER:
+- Rock beats Scissors
+- Scissors beats Paper  
+- Paper beats Rock
+- Same moves = Tie
+
+DYNAMIC STRATEGY EXAMPLES:
+- "If I won last round, play what would beat my opponent's last move" = if you won, play the move that beats what they played
+- "If I lost, stick with same move" = if you lost, repeat your previous move
+- "Always play what would beat my opponent's last move" = play the move that beats their most recent move
+- "If it's a tie, play rock" = if the previous round was a tie, play rock
+- "Randomize between the other 2 moves" = pick randomly from the two moves you didn't play last time
+
+Make your next move based on your strategy and the game history.`;
+
+    const userMessage = `What is your move for round ${round}? 
+
+Remember: This is round ${round} of 10. Apply your strategy accordingly.
+
+Please respond in this exact format:
+MOVE: [rock/paper/scissors]
+REASONING: [Your brief explanation of why you chose this move based on your strategy and the game history]`;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: "gpt-4o-mini",
       messages: [
-        { role: 'system', content: systemMessage },
-        { role: 'user', content: userMessage }
+        { role: "system", content: systemMessage },
+        { role: "user", content: userMessage },
       ],
       temperature: 0.7,
       top_p: 1,
       frequency_penalty: 0,
       presence_penalty: 0,
-      max_tokens: 500,
+      max_tokens: 200,
     });
 
-    const moveText = response.choices[0]?.message?.content || '';
-    
-    // Parse the comma-separated moves
-    const moves = moveText
-      .toLowerCase()
-      .split(/[,\s\n]+/)
-      .map(m => m.trim())
-      .filter(m => m === 'rock' || m === 'paper' || m === 'scissors')
-      .map(m => m as Move);
+    const responseText = response.choices[0]?.message?.content || "";
 
-    // Ensure we have exactly batchSize moves
-    while (moves.length < batchSize) {
-      moves.push(moves[moves.length % Math.max(1, moves.length)] || 'rock');
-    }
+    // Parse the response to extract move and reasoning
+    const moveMatch = responseText.match(/MOVE:\s*(rock|paper|scissors)/i);
+    const reasoningMatch = responseText.match(/REASONING:\s*(.+)/i);
 
-    return moves.slice(0, batchSize);
+    const move = moveMatch ? parseMove(moveMatch[1]) : parseMove(responseText);
+    const reasoning = reasoningMatch
+      ? reasoningMatch[1].trim()
+      : "No reasoning provided";
+
+    return { move, reasoning };
   } catch (error) {
-    console.error('Error getting batch of moves:', error);
-    // Return random moves as fallback
-    const allMoves: Move[] = ['rock', 'paper', 'scissors'];
-    return Array.from({ length: batchSize }, () => allMoves[Math.floor(Math.random() * allMoves.length)]);
+    console.error("Error getting move:", error);
+    // Return random move as fallback
+    const allMoves: Move[] = ["rock", "paper", "scissors"];
+    const randomMove = allMoves[Math.floor(Math.random() * allMoves.length)];
+    return { move: randomMove, reasoning: "Error occurred, using random move" };
   }
 }
 
@@ -104,97 +162,71 @@ export async function POST(request: NextRequest) {
 
     if (!player1Prompt || !player2Prompt) {
       return NextResponse.json(
-        { error: 'Both player prompts are required' },
+        { error: "Both player prompts are required" },
         { status: 400 }
       );
     }
 
-    const BATCH_SIZE = 20; // Process 20 rounds at a time (5 batches total)
-    const TOTAL_ROUNDS = 100;
+    const TOTAL_ROUNDS = 10;
     const results: RoundResult[] = [];
-    
-    // Track context for each player
-    let player1Context = '';
-    let player2Context = '';
-    let player1Score = { wins: 0, losses: 0, ties: 0 };
-    let player2Score = { wins: 0, losses: 0, ties: 0 };
 
-    console.log(`Processing ${TOTAL_ROUNDS} rounds in ${TOTAL_ROUNDS / BATCH_SIZE} batches of ${BATCH_SIZE}...`);
+    console.log(`Playing ${TOTAL_ROUNDS} rounds with individual move calls...`);
 
-    // Process rounds in batches
-    for (let batchStart = 1; batchStart <= TOTAL_ROUNDS; batchStart += BATCH_SIZE) {
-      const batchNum = Math.floor((batchStart - 1) / BATCH_SIZE) + 1;
-      console.log(`Batch ${batchNum}/${TOTAL_ROUNDS / BATCH_SIZE}: Rounds ${batchStart}-${batchStart + BATCH_SIZE - 1}`);
+    // Play out all 10 rounds with individual API calls
+    for (let round = 1; round <= TOTAL_ROUNDS; round++) {
+      console.log(
+        `Round ${round}/${TOTAL_ROUNDS} - Getting moves from both players...`
+      );
 
-      // Get moves for both players in parallel for this batch
-      const [player1Batch, player2Batch] = await Promise.all([
-        getBatchOfMoves(player1Prompt, batchStart, BATCH_SIZE, player1Context, player1Score),
-        getBatchOfMoves(player2Prompt, batchStart, BATCH_SIZE, player2Context, player2Score),
+      // Get moves for both players in parallel for this round
+      const [player1Result, player2Result] = await Promise.all([
+        getMove(player1Prompt, round, results, 1),
+        getMove(player2Prompt, round, results, 2),
       ]);
 
-      // Play out all rounds in this batch
-      for (let i = 0; i < BATCH_SIZE; i++) {
-        const round = batchStart + i;
-        if (round > TOTAL_ROUNDS) break;
+      const winner = determineWinner(player1Result.move, player2Result.move);
 
-        const player1Move = player1Batch[i];
-        const player2Move = player2Batch[i];
-        const winner = determineWinner(player1Move, player2Move);
+      results.push({
+        round,
+        player1Move: player1Result.move,
+        player2Move: player2Result.move,
+        winner,
+        player1Reasoning: player1Result.reasoning,
+        player2Reasoning: player2Result.reasoning,
+      });
 
-        results.push({
-          round,
-          player1Move,
-          player2Move,
-          winner,
-        });
-
-        // Update scores
-        if (winner === 'player1') {
-          player1Score.wins++;
-          player2Score.losses++;
-        } else if (winner === 'player2') {
-          player2Score.wins++;
-          player1Score.losses++;
-        } else {
-          player1Score.ties++;
-          player2Score.ties++;
-        }
-      }
-
-      // Update context with ALL previous results (full game history)
-      player1Context = results
-        .map(r => `R${r.round}: You ${r.player1Move} vs ${r.player2Move} → ${
-          r.winner === 'player1' ? 'WIN' : r.winner === 'player2' ? 'LOSS' : 'TIE'
-        }`)
-        .join('\n');
-      
-      player2Context = results
-        .map(r => `R${r.round}: You ${r.player2Move} vs ${r.player1Move} → ${
-          r.winner === 'player2' ? 'WIN' : r.winner === 'player1' ? 'LOSS' : 'TIE'
-        }`)
-        .join('\n');
+      console.log(
+        `Round ${round}: P1=${player1Result.move}, P2=${player2Result.move}, Winner=${winner}`
+      );
+      console.log(`P1 Reasoning: ${player1Result.reasoning}`);
+      console.log(`P2 Reasoning: ${player2Result.reasoning}`);
     }
 
     // Calculate final scores
-    const player1Wins = results.filter(r => r.winner === 'player1').length;
-    const player2Wins = results.filter(r => r.winner === 'player2').length;
-    const ties = results.filter(r => r.winner === 'tie').length;
+    const player1Wins = results.filter((r) => r.winner === "player1").length;
+    const player2Wins = results.filter((r) => r.winner === "player2").length;
+    const ties = results.filter((r) => r.winner === "tie").length;
 
-    console.log(`Game complete! P1: ${player1Wins} P2: ${player2Wins} Ties: ${ties}`);
+    console.log(
+      `Game complete! P1: ${player1Wins} P2: ${player2Wins} Ties: ${ties}`
+    );
 
     return NextResponse.json({
       results,
       player1Wins,
       player2Wins,
       ties,
-      finalWinner: player1Wins > player2Wins ? 'player1' : player2Wins > player1Wins ? 'player2' : 'tie',
+      finalWinner:
+        player1Wins > player2Wins
+          ? "player1"
+          : player2Wins > player1Wins
+          ? "player2"
+          : "tie",
+      player1Prompt,
+      player2Prompt,
     });
   } catch (error) {
-    console.error('Error in play-rps API:', error);
-    return NextResponse.json(
-      { error: 'Failed to play game' },
-      { status: 500 }
-    );
+    console.error("Error in play-rps API:", error);
+    return NextResponse.json({ error: "Failed to play game" }, { status: 500 });
   }
 }
-

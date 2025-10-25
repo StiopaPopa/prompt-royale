@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spawn } from 'child_process';
-import OpenAI from 'openai';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,6 +85,70 @@ async function getRandomReferenceDataUrl(query?: string | null): Promise<{ dataU
     return { dataUrl, source: 'picsum' };
 }
 
+async function generateImageWithGemini(prompt: string, modelOverride?: string) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    const model = modelOverride || process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+    if (!apiKey) throw new Error('Missing GEMINI_API_KEY on server');
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify({
+            contents: [
+                {
+                    role: 'user',
+                    parts: [
+                        { text: prompt },
+                    ],
+                },
+            ],
+            generationConfig: {
+                temperature: 0.7,
+            },
+        }),
+    });
+    if (!res.ok) throw new Error(`Gemini generate failed: ${res.status} ${await res.text()}`);
+    const json = await res.json();
+    // Try to find inline image base64 across all candidates/parts, supporting inline_data and inlineData variants
+    const candidates: any[] = json?.candidates || [];
+    let b64: string | null = null;
+    let mime: string = 'image/png';
+    for (const cand of candidates) {
+        const parts: any[] = cand?.content?.parts || [];
+        for (const p of parts) {
+            const inlineSnake = p?.inline_data;
+            const inlineCamel = p?.inlineData;
+            if (inlineSnake?.data) {
+                b64 = inlineSnake.data;
+                mime = inlineSnake.mime_type || mime;
+                break;
+            }
+            if (inlineCamel?.data) {
+                b64 = inlineCamel.data;
+                mime = inlineCamel.mimeType || mime;
+                break;
+            }
+            if (typeof p?.text === 'string' && p.text.startsWith('data:image/')) {
+                // Some responses could embed a data URL directly in text
+                return { dataUrl: p.text, provider: 'gemini' as const, model };
+            }
+        }
+        if (b64) break;
+    }
+    if (!b64) {
+        // Provide a compact hint of the shape to aid debugging
+        const hint = JSON.stringify({
+            keys: Object.keys(json || {}),
+            firstCandKeys: Object.keys((json?.candidates?.[0] || {})),
+        });
+        throw new Error(`Gemini returned no inline image data (model=${model}). The selected model may not support image generation. Hint: ${hint}`);
+    }
+    return { dataUrl: `data:${mime};base64,${b64}`, provider: 'gemini' as const, model };
+}
+
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
@@ -93,40 +156,35 @@ export async function POST(request: NextRequest) {
 
         // Mode 1: prompts provided -> generate images then compare
         if (mode === 'generate-and-compare') {
-            const { referenceImage, p1Prompt, p2Prompt } = body as { referenceImage?: string; p1Prompt?: string; p2Prompt?: string };
+            const { referenceImage, p1Prompt, p2Prompt, geminiModel } = body as { referenceImage?: string; p1Prompt?: string; p2Prompt?: string; geminiModel?: string };
             if (!referenceImage || !p1Prompt || !p2Prompt) {
                 return NextResponse.json({ error: 'Missing referenceImage, p1Prompt, or p2Prompt' }, { status: 400 });
             }
 
-            const apiKey = process.env.OPENAI_API_KEY;
-            if (!apiKey) {
-                return NextResponse.json({ error: 'Missing OPENAI_API_KEY on server' }, { status: 500 });
-            }
-            const openai = new OpenAI({
-                apiKey:
-                    "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",
-            });
-
-            // Generate two images in parallel
-            const [g1, g2] = await Promise.all([
-                openai.images.generate({ model: 'gpt-image-1', prompt: p1Prompt, size: '1024x1024' }),
-                openai.images.generate({ model: 'gpt-image-1', prompt: p2Prompt, size: '1024x1024' }),
+            const modelToUse = geminiModel || process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+            const [im1, im2] = await Promise.all([
+                generateImageWithGemini(p1Prompt, modelToUse),
+                generateImageWithGemini(p2Prompt, modelToUse),
             ]);
 
-            const p1b64 = g1?.data?.[0]?.b64_json;
-            const p2b64 = g2?.data?.[0]?.b64_json;
-            if (!p1b64 || !p2b64) {
-                return NextResponse.json({ error: 'Failed to generate images from prompts' }, { status: 500 });
-            }
-            const player1Image = `data:image/png;base64,${p1b64}`;
-            const player2Image = `data:image/png;base64,${p2b64}`;
+            const player1Image = im1.dataUrl;
+            const player2Image = im2.dataUrl;
 
             const [p1, p2] = await runPythonSimilarity(referenceImage, [player1Image, player2Image]);
             const player1Score = Number.isFinite(p1) ? p1 : 1.0;
             const player2Score = Number.isFinite(p2) ? p2 : 1.0;
-            const winner: Winner = player1Score === player2Score ? 'tie' : (player1Score > player2Score ? 'player1' : 'player2');
+            const diff = Math.abs(player1Score - player2Score);
+            const winner: Winner = diff <= 0.5 ? 'tie' : (player1Score > player2Score ? 'player1' : 'player2');
 
-            return NextResponse.json({ player1Score, player2Score, winner, player1Image, player2Image });
+            return NextResponse.json({
+                player1Score,
+                player2Score,
+                winner,
+                player1Image,
+                player2Image,
+                provider: 'gemini',
+                model: modelToUse,
+            });
         }
 
         // Mode 2: direct base64 images provided -> compare
@@ -150,7 +208,7 @@ export async function POST(request: NextRequest) {
         }
     } catch (error) {
         console.error('Error in image similarity API:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: (error as Error)?.message || 'Internal server error' }, { status: 500 });
     }
 }
 

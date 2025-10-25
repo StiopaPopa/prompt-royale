@@ -38,22 +38,54 @@ function UploadCard({
     required,
     image,
     children,
+    loading,
+    onZoom,
+    variant,
 }: {
     title: string;
     required?: boolean;
     image: string | null;
     children?: ReactNode;
+    loading?: boolean;
+    onZoom?: () => void;
+    variant?: 'reference' | 'p1' | 'p2';
 }) {
+    const borderColor = variant === 'reference'
+        ? 'border-purple-500/60'
+        : variant === 'p1'
+            ? 'border-blue-500/60'
+            : variant === 'p2'
+                ? 'border-rose-500/60'
+                : 'border-gray-700';
     return (
         <div className="bg-gray-900 rounded-2xl p-5 border border-gray-800 shadow-xl">
             <div className="flex items-center justify-between mb-3">
                 <div className="text-white font-semibold">{title} {required && <span className="text-red-400">*</span>}</div>
             </div>
-            <div className="aspect-video w-full bg-black/40 border border-gray-700 rounded-lg overflow-hidden flex items-center justify-center">
+            <div className={classNames("relative aspect-square w-full bg-black/40 border-2 rounded-xl overflow-hidden flex items-center justify-center", borderColor)}>
                 {image ? (
                     <img src={image} alt={title} className="w-full h-full object-cover" />
                 ) : (
                     <div className="text-gray-400">No image yet</div>
+                )}
+                {loading && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <div className="flex items-center justify-center gap-2">
+                            <span className="w-2.5 h-2.5 bg-white/90 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                            <span className="w-2.5 h-2.5 bg-white/90 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                            <span className="w-2.5 h-2.5 bg-white/90 rounded-full animate-bounce"></span>
+                        </div>
+                    </div>
+                )}
+                {!!image && !loading && (
+                    <button
+                        type="button"
+                        onClick={onZoom}
+                        className="absolute top-2 right-2 px-2.5 py-1.5 text-sm bg-black/60 hover:bg-black/80 border border-white/20 rounded shadow"
+                        aria-label="Zoom image"
+                    >
+                        🔍
+                    </button>
                 )}
             </div>
             {children}
@@ -63,15 +95,19 @@ function UploadCard({
 
 export default function ImageSimilarityPage() {
     const [referenceImage, setReferenceImage] = useState<string | null>(null);
-    const [referenceQuery, setReferenceQuery] = useState('');
+    const [isFindingRef, setIsFindingRef] = useState(false);
     const [player1Image, setPlayer1Image] = useState<string | null>(null);
     const [player2Image, setPlayer2Image] = useState<string | null>(null);
     const [scores, setScores] = useState<Scores>(null);
-    const [winner, setWinner] = useState<'player1' | 'player2' | null>(null);
+    const [winner, setWinner] = useState<'player1' | 'player2' | 'tie' | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [p1Prompt, setP1Prompt] = useState('');
     const [p2Prompt, setP2Prompt] = useState('');
+    const [zoomSrc, setZoomSrc] = useState<string | null>(null);
+    const FIXED_GEMINI_MODEL = 'gemini-2.5-flash-image';
+    const [usedProvider, setUsedProvider] = useState<string | null>(null);
+    const [usedModel, setUsedModel] = useState<string | null>(null);
 
     const readyToCompare = Boolean(referenceImage && player1Image && player2Image);
 
@@ -95,20 +131,23 @@ export default function ImageSimilarityPage() {
         setIsLoading(true);
         setError(null);
         try {
+            const modelToSend = FIXED_GEMINI_MODEL;
             const res = await fetch('/api/image-similarity', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode: 'generate-and-compare', referenceImage, p1Prompt, p2Prompt }),
+                body: JSON.stringify({ mode: 'generate-and-compare', referenceImage, p1Prompt, p2Prompt, geminiModel: modelToSend }),
             });
             if (!res.ok) throw new Error(await res.text());
-            const data: { player1Score: number; player2Score: number; winner: 'player1' | 'player2' | 'tie'; player1Image: string; player2Image: string } = await res.json();
+            const data: { player1Score: number; player2Score: number; winner: 'player1' | 'player2' | 'tie'; player1Image: string; player2Image: string; provider?: string; model?: string } = await res.json();
             setScores({ p1: data.player1Score, p2: data.player2Score });
             setPlayer1Image(data.player1Image);
             setPlayer2Image(data.player2Image);
-            setWinner(data.winner === 'tie' ? (data.player1Score >= data.player2Score ? 'player1' : 'player2') : data.winner);
+            setWinner(data.winner);
+            setUsedProvider(data.provider ?? null);
+            setUsedModel(data.model ?? null);
         } catch (e) {
             console.error(e);
-            setError('Failed to compare images. Ensure the Python deps are installed.');
+            setError('Failed to generate images. Ensure the required API is available.');
         } finally {
             setIsLoading(false);
         }
@@ -116,7 +155,7 @@ export default function ImageSimilarityPage() {
 
     const reset = () => {
         setReferenceImage(null);
-        setReferenceQuery('');
+        setIsFindingRef(false);
         setPlayer1Image(null);
         setPlayer2Image(null);
         setScores(null);
@@ -134,28 +173,20 @@ export default function ImageSimilarityPage() {
                 <div className="mb-8">
                     <Link href="/" className="text-blue-400 hover:text-blue-300 mb-4 inline-block">← Back to Home</Link>
                     <h1 className="text-4xl font-bold mb-2">Image Similarity</h1>
-                    <p className="text-gray-400">Upload a Reference image and two Player images, then compare with a 1-10 score.</p>
+                    <p className="text-gray-400">Find a reference image and generate two Player images, then compete with a 1-10 score.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {/* Reference fetch card */}
-                    <UploadCard title="Reference Image" required image={referenceImage}>
+                    <UploadCard title="Reference Image" required image={referenceImage} loading={isFindingRef} onZoom={() => referenceImage && setZoomSrc(referenceImage)} variant="reference">
                         <div className="mt-4 space-y-3">
-                            <input
-                                type="text"
-                                placeholder="Optional topic (e.g., basketball hoop)"
-                                value={referenceQuery}
-                                onChange={(e) => setReferenceQuery(e.target.value)}
-                                className="w-full mt-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded outline-none focus:ring-2 focus:ring-purple-500"
-                            />
-                            <div className="flex gap-3">
+                            <div className="space-y-3 w-full">
                                 <button
                                     onClick={async () => {
-                                        setIsLoading(true);
+                                        setIsFindingRef(true);
                                         setError(null);
                                         try {
-                                            const url = '/api/image-similarity' + (referenceQuery ? `?random=1&query=${encodeURIComponent(referenceQuery)}` : '?random=1');
-                                            const res = await fetch(url);
+                                            const res = await fetch('/api/image-similarity?random=1');
                                             if (!res.ok) throw new Error(await res.text());
                                             const data: { dataUrl: string } = await res.json();
                                             setReferenceImage(data.dataUrl);
@@ -163,18 +194,19 @@ export default function ImageSimilarityPage() {
                                             console.error(e);
                                             setError('Failed to fetch a random reference image.');
                                         } finally {
-                                            setIsLoading(false);
+                                            setIsFindingRef(false);
                                         }
                                     }}
-                                    className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded"
-                                >Get Random HD Image</button>
-                                <button onClick={() => setReferenceImage(null)} className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded">Clear</button>
+                                    className="w-full px-4 py-3 text-lg bg-purple-600 hover:bg-purple-700 rounded disabled:bg-gray-700"
+                                    disabled={isFindingRef || isLoading}
+                                >Generate Random HD Image</button>
+                                <button onClick={() => setReferenceImage(null)} className="w-full px-4 py-3 text-lg bg-gray-700 hover:bg-gray-600 rounded">Reset</button>
                             </div>
                         </div>
                     </UploadCard>
 
                     {/* Player 1 prompt */}
-                    <UploadCard title="Player 1" required image={player1Image}>
+                    <UploadCard title="Player 1" required image={player1Image} onZoom={() => player1Image && setZoomSrc(player1Image)} variant="p1">
                         <div className="mt-4 space-y-3">
                             <textarea
                                 placeholder="Describe the image for Player 1 to generate"
@@ -187,7 +219,7 @@ export default function ImageSimilarityPage() {
                     </UploadCard>
 
                     {/* Player 2 prompt */}
-                    <UploadCard title="Player 2" required image={player2Image}>
+                    <UploadCard title="Player 2" required image={player2Image} onZoom={() => player2Image && setZoomSrc(player2Image)} variant="p2">
                         <div className="mt-4 space-y-3">
                             <textarea
                                 placeholder="Describe the image for Player 2 to generate"
@@ -200,15 +232,15 @@ export default function ImageSimilarityPage() {
                     </UploadCard>
                 </div>
 
-                <div className="flex items-center gap-4 mt-6">
+                <div className="mt-6 space-y-3">
                     <button
                         onClick={compareImages}
-                        disabled={!referenceImage || !p1Prompt.trim() || !p2Prompt.trim() || isLoading}
-                        className="px-6 py-3 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 disabled:from-gray-700 disabled:to-gray-700 hover:from-indigo-600 hover:to-purple-600 transition shadow"
+                        disabled={!referenceImage || !p1Prompt.trim() || !p2Prompt.trim() || isLoading || isFindingRef}
+                        className="w-full px-8 py-5 text-lg rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 disabled:from-gray-700 disabled:to-gray-700 hover:from-indigo-600 hover:to-purple-600 transition shadow"
                     >
-                        {isLoading ? 'Comparing…' : '⚡ Compare Images'}
+                        {isFindingRef ? 'Finding image..' : (isLoading ? 'Comparing…' : '⚡ Compare!')}
                     </button>
-                    <button onClick={reset} className="px-6 py-3 rounded-lg bg-gray-700 hover:bg-gray-600 transition shadow">Reset Game</button>
+                    <button onClick={reset} className="w-full px-8 py-5 text-lg rounded-lg bg-gray-700 hover:bg-gray-600 transition shadow">Reset Game</button>
                 </div>
 
                 {error && (
@@ -225,10 +257,23 @@ export default function ImageSimilarityPage() {
                         <div className="flex justify-center mt-6">
                             {winner && (
                                 <div className="px-6 py-3 bg-red-600 rounded-full font-semibold shadow">
-                                    🏆🏆 {winner === 'player1' ? 'Player 1 Wins!' : 'Player 2 Wins!'}
+                                    {winner === 'tie' ? '🤝 Draw!' : (winner === 'player1' ? '🏆 Player 1 Wins!' : '🏆 Player 2 Wins!')}
                                 </div>
                             )}
                         </div>
+                        <div className="mt-4 text-center text-gray-400 text-sm">
+                            Model: <span className="text-gray-200">{usedModel || FIXED_GEMINI_MODEL}</span>
+                        </div>
+                    </div>
+                )}
+
+                {zoomSrc && (
+                    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setZoomSrc(null)}>
+                        <img src={zoomSrc} alt="Zoomed" className="max-w-[90vw] max-h-[85vh] rounded-lg border border-white/10 shadow-2xl" />
+                        <button
+                            className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded"
+                            onClick={() => setZoomSrc(null)}
+                        >Close</button>
                     </div>
                 )}
             </main>

@@ -82,7 +82,7 @@ export default function Home() {
           <div className="flex justify-center gap-6 flex-wrap">
             {/* Rock Paper Scissors Tile */}
             <Link href="/games/rock-paper-scissors" className="group cursor-pointer">
-              <div className="bg-gray-900 rounded-lg p-8 border border-gray-800 hover:border-gray-600 transition-all duration-200 hover:bg-gray-800 hover-lift w-96">
+              <div className="bg-gray-900 rounded-lg p-8 border border-gray-800 hover:border-gray-600 transition-all duration-200 hover:bg-gray-800 hover-lift">
                 <div className="text-center">
                   <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-5">
                     <span className="text-black text-3xl">✂️</span>

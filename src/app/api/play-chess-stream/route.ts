@@ -7,6 +7,139 @@ const openai = new OpenAI({
     "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",
 });
 
+// Material and positional evaluation function
+// This is a simplified evaluation that considers:
+// 1. Material count (pieces)
+// 2. Piece positioning (center control, development)
+// 3. King safety
+function evaluatePosition(chess: Chess): number {
+  const board = chess.board();
+  
+  const pieceValues: Record<string, number> = {
+    p: 100,  // Pawn
+    n: 320,  // Knight
+    b: 330,  // Bishop
+    r: 500,  // Rook
+    q: 900,  // Queen
+    k: 20000 // King
+  };
+
+  // Positional bonuses for piece placement
+  const pawnTable = [
+    0,  0,  0,  0,  0,  0,  0,  0,
+    50, 50, 50, 50, 50, 50, 50, 50,
+    10, 10, 20, 30, 30, 20, 10, 10,
+    5,  5, 10, 25, 25, 10,  5,  5,
+    0,  0,  0, 20, 20,  0,  0,  0,
+    5, -5,-10,  0,  0,-10, -5,  5,
+    5, 10, 10,-20,-20, 10, 10,  5,
+    0,  0,  0,  0,  0,  0,  0,  0
+  ];
+
+  const knightTable = [
+    -50,-40,-30,-30,-30,-30,-40,-50,
+    -40,-20,  0,  0,  0,  0,-20,-40,
+    -30,  0, 10, 15, 15, 10,  0,-30,
+    -30,  5, 15, 20, 20, 15,  5,-30,
+    -30,  0, 15, 20, 20, 15,  0,-30,
+    -30,  5, 10, 15, 15, 10,  5,-30,
+    -40,-20,  0,  5,  5,  0,-20,-40,
+    -50,-40,-30,-30,-30,-30,-40,-50
+  ];
+
+  const bishopTable = [
+    -20,-10,-10,-10,-10,-10,-10,-20,
+    -10,  0,  0,  0,  0,  0,  0,-10,
+    -10,  0,  5, 10, 10,  5,  0,-10,
+    -10,  5,  5, 10, 10,  5,  5,-10,
+    -10,  0, 10, 10, 10, 10,  0,-10,
+    -10, 10, 10, 10, 10, 10, 10,-10,
+    -10,  5,  0,  0,  0,  0,  5,-10,
+    -20,-10,-10,-10,-10,-10,-10,-20
+  ];
+
+  const rookTable = [
+    0,  0,  0,  0,  0,  0,  0,  0,
+    5, 10, 10, 10, 10, 10, 10,  5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    0,  0,  0,  5,  5,  0,  0,  0
+  ];
+
+  const queenTable = [
+    -20,-10,-10, -5, -5,-10,-10,-20,
+    -10,  0,  0,  0,  0,  0,  0,-10,
+    -10,  0,  5,  5,  5,  5,  0,-10,
+    -5,  0,  5,  5,  5,  5,  0, -5,
+    0,  0,  5,  5,  5,  5,  0, -5,
+    -10,  5,  5,  5,  5,  5,  0,-10,
+    -10,  0,  5,  0,  0,  0,  0,-10,
+    -20,-10,-10, -5, -5,-10,-10,-20
+  ];
+
+  const kingMiddleGameTable = [
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -20,-30,-30,-40,-40,-30,-30,-20,
+    -10,-20,-20,-20,-20,-20,-20,-10,
+    20, 20,  0,  0,  0,  0, 20, 20,
+    20, 30, 10,  0,  0, 10, 30, 20
+  ];
+
+  const tables: Record<string, number[]> = {
+    p: pawnTable,
+    n: knightTable,
+    b: bishopTable,
+    r: rookTable,
+    q: queenTable,
+    k: kingMiddleGameTable
+  };
+
+  let evaluation = 0;
+
+  // Evaluate each piece
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      const piece = board[row][col];
+      if (piece) {
+        const pieceType = piece.type;
+        const isWhite = piece.color === 'w';
+        const pieceValue = pieceValues[pieceType];
+        
+        // Get positional bonus
+        const tableIndex = isWhite ? (7 - row) * 8 + col : row * 8 + col;
+        const positionBonus = tables[pieceType]?.[tableIndex] || 0;
+        
+        const totalValue = pieceValue + positionBonus;
+        evaluation += isWhite ? totalValue : -totalValue;
+      }
+    }
+  }
+
+  // Bonus for having the move (tempo)
+  evaluation += chess.turn() === 'w' ? 10 : -10;
+
+  // Bonus for castling rights
+  if (chess.getCastlingRights('w').length > 0) evaluation += 20;
+  if (chess.getCastlingRights('b').length > 0) evaluation -= 20;
+
+  // Penalty for being in check
+  if (chess.isCheck()) {
+    evaluation += chess.turn() === 'w' ? -30 : 30;
+  }
+
+  // Bonus for mobility (number of legal moves)
+  const mobility = chess.moves().length;
+  evaluation += chess.turn() === 'w' ? mobility * 5 : -mobility * 5;
+
+  return evaluation;
+}
+
 interface MoveResult {
   moveNumber: number;
   player: "white" | "black";
@@ -142,19 +275,21 @@ export async function POST(request: NextRequest) {
       try {
         const chess = new Chess();
         const moves: MoveResult[] = [];
-        const MAX_MOVES = 100; // Prevent infinite games
+        const MOVES_PER_PLAYER = 30; // Each player makes exactly 30 moves
+        const TOTAL_MOVES = MOVES_PER_PLAYER * 2; // 60 total moves
 
         console.log("Starting chess game with streaming...");
+        console.log(`Game will run for ${MOVES_PER_PLAYER} moves per player (${TOTAL_MOVES} total moves)`);
 
         // Send initial game start event
         controller.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({ type: "start", whitePrompt, blackPrompt })}\n\n`
+            `data: ${JSON.stringify({ type: "start", whitePrompt, blackPrompt, totalMoves: TOTAL_MOVES })}\n\n`
           )
         );
 
-        // Play until game is over or max moves reached
-        while (!chess.isGameOver() && moves.length < MAX_MOVES) {
+        // Play exactly TOTAL_MOVES moves (or until checkmate/stalemate)
+        while (moves.length < TOTAL_MOVES && !chess.isCheckmate() && !chess.isStalemate()) {
           const currentPlayer = chess.turn() === "w" ? "white" : "black";
           const currentPrompt =
             currentPlayer === "white" ? whitePrompt : blackPrompt;
@@ -235,28 +370,45 @@ export async function POST(request: NextRequest) {
         // Determine winner and reason
         let winner: "white" | "black" | "draw";
         let gameEndReason: string;
+        let evaluation = 0;
 
         if (chess.isCheckmate()) {
           winner = chess.turn() === "w" ? "black" : "white";
           gameEndReason = `Checkmate! ${winner === "white" ? "White" : "Black"} wins!`;
+          evaluation = winner === "white" ? 10000 : -10000;
         } else if (chess.isStalemate()) {
           winner = "draw";
           gameEndReason = "Stalemate - Draw!";
-        } else if (chess.isThreefoldRepetition()) {
-          winner = "draw";
-          gameEndReason = "Draw by threefold repetition";
-        } else if (chess.isInsufficientMaterial()) {
-          winner = "draw";
-          gameEndReason = "Draw by insufficient material";
-        } else if (chess.isDraw()) {
-          winner = "draw";
-          gameEndReason = "Draw by 50-move rule";
-        } else if (moves.length >= MAX_MOVES) {
-          winner = "draw";
-          gameEndReason = `Draw - Maximum moves (${MAX_MOVES}) reached`;
+          evaluation = 0;
         } else {
-          winner = "draw";
-          gameEndReason = "Game ended";
+          // Game reached move limit - evaluate position
+          console.log("Game reached move limit, evaluating position...");
+          
+          // Send evaluation in progress message
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: "evaluating" })}\n\n`
+            )
+          );
+
+          evaluation = evaluatePosition(chess);
+          console.log(`Position evaluation: ${evaluation} centipawns`);
+
+          // Determine winner based on evaluation
+          // Evaluation is in centipawns (1/100th of a pawn)
+          // Positive = White advantage, Negative = Black advantage
+          const DRAW_THRESHOLD = 50; // Within 0.5 pawns is considered a draw
+
+          if (Math.abs(evaluation) <= DRAW_THRESHOLD) {
+            winner = "draw";
+            gameEndReason = `Draw by evaluation! Position is equal (${(evaluation / 100).toFixed(2)} pawns)`;
+          } else if (evaluation > 0) {
+            winner = "white";
+            gameEndReason = `White wins by evaluation! White is ahead by ${(evaluation / 100).toFixed(2)} pawns`;
+          } else {
+            winner = "black";
+            gameEndReason = `Black wins by evaluation! Black is ahead by ${(Math.abs(evaluation) / 100).toFixed(2)} pawns`;
+          }
         }
 
         // Send game end event
@@ -268,6 +420,8 @@ export async function POST(request: NextRequest) {
               gameEndReason,
               pgn: chess.pgn(),
               totalMoves: moves.length,
+              evaluation: evaluation,
+              evaluationInPawns: (evaluation / 100).toFixed(2),
             })}\n\n`
           )
         );

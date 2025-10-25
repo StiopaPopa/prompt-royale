@@ -83,13 +83,13 @@ function ChessBoard({ fen }: { fen: string }) {
             return (
               <div
                 key={`${rowIndex}-${colIndex}`}
-                className={`w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 flex items-center justify-center relative ${
+                className={`w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 flex items-center justify-center relative ${
                   isLight ? "bg-[#F0D9B5]" : "bg-[#B58863]"
                 }`}
               >
                 {piece && (
                   <span
-                    className={`text-5xl sm:text-6xl md:text-7xl ${
+                    className={`text-4xl sm:text-5xl md:text-6xl ${
                       isWhitePiece ? "text-white" : "text-black"
                     }`}
                     style={{

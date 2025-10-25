@@ -68,67 +68,30 @@ async function getMove(
             .join("\n")
         : "No previous rounds";
 
-    const systemMessage = `You are playing Rock Paper Scissors. Your strategy: ${prompt}
+    const systemMessage = `YOU MUST FOLLOW THIS STRATEGY EXACTLY: ${prompt}
 
-IMPORTANT: You are currently on ROUND ${round} of 10 total rounds.
-- Round 1 = first move
-- Round 2 = second move  
-- Round 3 = third move
-- etc.
+This is round ${round} of 10.
 
-Previous rounds:
+Game history:
 ${historyText}
 
-When interpreting your strategy:
-- "first X moves" means rounds 1 through X
-- "second X moves" means rounds X+1 through 2X
-- "last X moves" means rounds (10-X+1) through 10
-- For fractions like "10/3", round to the nearest whole number (10/3 ≈ 3)
-- Example: "first 10/3 moves rock" = first 3 moves rock (rounds 1, 2, 3)
-- Example: "second 10/3 moves paper" = next 3 moves paper (rounds 4, 5, 6)
-- Example: "last 10/3 moves scissors" = last 3 moves scissors (rounds 8, 9, 10)
+Basic rules: Rock beats Scissors, Scissors beats Paper, Paper beats Rock.
 
-For DYNAMIC strategies based on previous moves/outcomes:
-- "if I won last round" = check if the previous round's winner was you
-- "if I lost last round" = check if the previous round's winner was your opponent
-- "if it was a tie" = check if the previous round's winner was "tie"
-- "my last move" = the move you played in the most recent round
-- "opponent's last move" = the move your opponent played in the most recent round
-- "what would beat X" = the move that beats X (rock beats scissors, scissors beats paper, paper beats rock)
-- "what would lose to X" = the move that loses to X (scissors loses to rock, paper loses to scissors, rock loses to paper)
-- "same as last time" = repeat your previous move
-- "opposite of last time" = play a different move than your previous move
+YOUR ONLY JOB: Follow the strategy above EXACTLY as written. Do not deviate.`;
 
-GAME RULES REMINDER:
-- Rock beats Scissors
-- Scissors beats Paper  
-- Paper beats Rock
-- Same moves = Tie
+    const userMessage = `Based on your strategy, what is your move for round ${round}?
 
-DYNAMIC STRATEGY EXAMPLES:
-- "If I won last round, play what would beat my opponent's last move" = if you won, play the move that beats what they played
-- "If I lost, stick with same move" = if you lost, repeat your previous move
-- "Always play what would beat my opponent's last move" = play the move that beats their most recent move
-- "If it's a tie, play rock" = if the previous round was a tie, play rock
-- "Randomize between the other 2 moves" = pick randomly from the two moves you didn't play last time
-
-Make your next move based on your strategy and the game history.`;
-
-    const userMessage = `What is your move for round ${round}? 
-
-Remember: This is round ${round} of 10. Apply your strategy accordingly.
-
-Please respond in this exact format:
+Respond in this format:
 MOVE: [rock/paper/scissors]
-REASONING: [Your brief explanation of why you chose this move based on your strategy and the game history]`;
+REASONING: [Brief explanation of how this follows your strategy]`;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       messages: [
         { role: "system", content: systemMessage },
         { role: "user", content: userMessage },
       ],
-      temperature: 0.7,
+      temperature: 0.0, // Deterministic - follow instructions exactly
       top_p: 1,
       frequency_penalty: 0,
       presence_penalty: 0,

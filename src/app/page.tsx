@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-black text-white">
@@ -79,7 +81,7 @@ export default function Home() {
 
           <div className="flex justify-center">
             {/* Rock Paper Scissors Tile */}
-            <div className="group cursor-pointer">
+            <Link href="/games/rock-paper-scissors" className="group cursor-pointer">
               <div className="bg-gray-900 rounded-lg p-8 border border-gray-800 hover:border-gray-600 transition-all duration-200 hover:bg-gray-800 hover-lift w-96">
                 <div className="text-center">
                   <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-5">
@@ -93,7 +95,7 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-            </div>
+            </Link>
           </div>
         </div>
       </main>

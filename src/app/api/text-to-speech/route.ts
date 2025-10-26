@@ -1,9 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
-
-const elevenlabs = new ElevenLabsClient({
-  apiKey: "sk_bb3b957c3e817d6d75ad28329ce5ce87528410c7e8b71971",
-});
 
 interface TTSRequest {
   text: string;
@@ -13,46 +8,53 @@ interface TTSRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: TTSRequest = await request.json();
-    const { text, voiceId } = body;
+    const { text } = body;
 
-    // Use a default voice ID (Adam - great for sports commentary)
-    // You can change this to any ElevenLabs voice ID
-    const selectedVoiceId = voiceId || "pNInz6obpgDQGcFmaJgB"; // Adam voice
+    // Get Fish Audio API key from environment
+    const fishApiKey = process.env.FISH_API_KEY;
 
-    // Generate speech using ElevenLabs
-    const audio = await elevenlabs.textToSpeech.convert(selectedVoiceId, {
-      text,
-      modelId: "eleven_turbo_v2_5",
-      voiceSettings: {
-        stability: 0.5,
-        similarityBoost: 0.75,
-        style: 0.5,
-        useSpeakerBoost: true,
-      },
-    });
-
-    // Convert the audio stream to a buffer
-    const chunks: Buffer[] = [];
-    const reader = audio.getReader();
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) chunks.push(Buffer.from(value));
-      }
-    } finally {
-      reader.releaseLock();
+    if (!fishApiKey) {
+      return NextResponse.json(
+        { error: "FISH_API_KEY not configured" },
+        { status: 500 }
+      );
     }
 
-    const audioBuffer = Buffer.concat(chunks);
+    // Generate speech using Fish Audio API with consistent male voice (Adam)
+    const response = await fetch("https://api.fish.audio/v1/tts", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${fishApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text,
+        reference_id: "728f6ff2240d49308e8137ffe66008e2", // ElevenLabs Adam voice clone
+        format: "mp3",
+        mp3_bitrate: 128,
+        normalize: true,
+        latency: "normal",
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Fish Audio API error:", errorText);
+      return NextResponse.json(
+        { error: "Failed to generate speech" },
+        { status: response.status }
+      );
+    }
+
+    // Get the audio buffer from Fish Audio response
+    const audioBuffer = await response.arrayBuffer();
 
     // Return audio as response
     return new NextResponse(audioBuffer, {
       status: 200,
       headers: {
         "Content-Type": "audio/mpeg",
-        "Content-Length": audioBuffer.length.toString(),
+        "Content-Length": audioBuffer.byteLength.toString(),
       },
     });
   } catch (error) {

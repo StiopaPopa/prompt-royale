@@ -76,9 +76,18 @@ async function fetchAsDataUrl(url: string): Promise<string> {
     return `data:${mime};base64,${buf.toString('base64')}`;
 }
 
-async function getRandomReferenceDataUrl(query?: string | null): Promise<{ dataUrl: string; source: string }> {
-    // Use Lorem Picsum exclusively. It does not support keyword search, so we use the
-    // provided query string (if any) only as a deterministic seed for image variety.
+async function getRandomReferenceDataUrl(kind: 'hd' | 'meme' = 'hd', query?: string | null): Promise<{ dataUrl: string; source: string }> {
+    if (kind === 'meme') {
+        // Meme API: https://meme-api.com/gimme
+        const res = await fetch('https://meme-api.com/gimme', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`Failed to fetch meme: ${res.status}`);
+        const json = await res.json();
+        const url: string | undefined = json?.url || json?.preview?.[json?.preview?.length - 1];
+        if (!url) throw new Error('Meme API returned no URL');
+        const dataUrl = await fetchAsDataUrl(url);
+        return { dataUrl, source: 'meme' };
+    }
+    // Default HD photo via Lorem Picsum
     const seed = encodeURIComponent(query || String(Date.now()));
     const picsumUrl = `https://picsum.photos/seed/${seed}/1024/1024`;
     const dataUrl = await fetchAsDataUrl(picsumUrl);
@@ -149,12 +158,84 @@ async function generateImageWithGemini(prompt: string, modelOverride?: string) {
     return { dataUrl: `data:${mime};base64,${b64}`, provider: 'gemini' as const, model };
 }
 
+function parseDataUrlToInline(dataUrl: string): { mime_type: string; data: string } {
+    // data:[mime];base64,....
+    const match = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
+    if (!match) throw new Error('Invalid data URL format');
+    const mime_type = match[1];
+    const data = match[2];
+    return { mime_type, data };
+}
+
+async function scoreWithGemini(referenceDataUrl: string, player1DataUrl: string, player2DataUrl: string, modelOverride?: string) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    // Ensure Gemini 2.5 flash (multimodal) is used for judging by default
+    const model = modelOverride || 'gemini-2.5-flash';
+    if (!apiKey) throw new Error('Missing GEMINI_API_KEY on server');
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+
+    const refInline = parseDataUrlToInline(referenceDataUrl);
+    const p1Inline = parseDataUrlToInline(player1DataUrl);
+    const p2Inline = parseDataUrlToInline(player2DataUrl);
+
+    const prompt = `You are an image judge. Compare two candidate images to a reference image and score each candidate on a 0-10 scale, where 10 means an almost perfect match to the reference and 0 means completely unrelated. Consider content, composition, style, color palette, and key visual attributes. Be concise but fair.
+
+Return ONLY compact JSON with keys: {"player1Score": number, "player2Score": number, "reasoning": string}. Do not include additional text.`;
+
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify({
+            contents: [
+                {
+                    role: 'user',
+                    parts: [
+                        { text: prompt },
+                        { text: 'Reference image:' },
+                        { inline_data: refInline },
+                        { text: 'Player 1 image:' },
+                        { inline_data: p1Inline },
+                        { text: 'Player 2 image:' },
+                        { inline_data: p2Inline },
+                    ],
+                },
+            ],
+            generationConfig: {
+                temperature: 0.2,
+            },
+        }),
+    });
+    if (!res.ok) throw new Error(`Gemini judge failed: ${res.status} ${await res.text()}`);
+    const json = await res.json();
+    // Extract JSON from text (may be plain text or fenced)
+    const text: string | undefined = json?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text).filter(Boolean).join('\n');
+    if (!text) throw new Error('Gemini judge returned no text');
+    const m = text.match(/\{[\s\S]*\}/);
+    const jsonStr = m ? m[0] : text;
+    let parsed: any;
+    try {
+        parsed = JSON.parse(jsonStr);
+    } catch (e) {
+        throw new Error('Failed to parse judge JSON: ' + (e as Error).message + ' — got: ' + text.slice(0, 400));
+    }
+    const p1 = Number(parsed.player1Score);
+    const p2 = Number(parsed.player2Score);
+    const reasoning = String(parsed.reasoning || '');
+    if (!Number.isFinite(p1) || !Number.isFinite(p2)) {
+        throw new Error('Judge JSON missing numeric scores');
+    }
+    return { player1Score: p1, player2Score: p2, reasoning, model };
+}
+
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const { mode } = body as { mode?: string };
 
-        // Mode 1: prompts provided -> generate images then compare
+        // Mode 1: prompts provided -> generate images then judge with LLM
         if (mode === 'generate-and-compare') {
             const { referenceImage, p1Prompt, p2Prompt, geminiModel } = body as { referenceImage?: string; p1Prompt?: string; p2Prompt?: string; geminiModel?: string };
             if (!referenceImage || !p1Prompt || !p2Prompt) {
@@ -170,9 +251,10 @@ export async function POST(request: NextRequest) {
             const player1Image = im1.dataUrl;
             const player2Image = im2.dataUrl;
 
-            const [p1, p2] = await runPythonSimilarity(referenceImage, [player1Image, player2Image]);
-            const player1Score = Number.isFinite(p1) ? p1 : 1.0;
-            const player2Score = Number.isFinite(p2) ? p2 : 1.0;
+            // Judge with Gemini
+            const judged = await scoreWithGemini(referenceImage, player1Image, player2Image);
+            const player1Score = judged.player1Score;
+            const player2Score = judged.player2Score;
             const diff = Math.abs(player1Score - player2Score);
             const winner: Winner = diff <= 0.5 ? 'tie' : (player1Score > player2Score ? 'player1' : 'player2');
 
@@ -184,10 +266,45 @@ export async function POST(request: NextRequest) {
                 player2Image,
                 provider: 'gemini',
                 model: modelToUse,
+                judgeModel: judged.model,
+                reasoning: judged.reasoning,
             });
         }
 
-        // Mode 2: direct base64 images provided -> compare
+        // Mode: generate a single image (client orchestrates progress)
+        if (mode === 'generate-image') {
+            const { prompt, geminiModel } = body as { prompt?: string; geminiModel?: string };
+            if (!prompt) {
+                return NextResponse.json({ error: 'Missing prompt' }, { status: 400 });
+            }
+            const modelToUse = geminiModel || process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+            const img = await generateImageWithGemini(prompt, modelToUse);
+            return NextResponse.json({ dataUrl: img.dataUrl, provider: 'gemini', model: modelToUse });
+        }
+
+        // Mode: judge two images against a reference (client orchestrates progress)
+        if (mode === 'judge') {
+            const { referenceImage, player1Image, player2Image, judgeModel } = body as {
+                referenceImage?: string;
+                player1Image?: string;
+                player2Image?: string;
+                judgeModel?: string;
+            };
+            if (!referenceImage || !player1Image || !player2Image) {
+                return NextResponse.json(
+                    { error: 'Missing required fields: referenceImage, player1Image, player2Image' },
+                    { status: 400 },
+                );
+            }
+            const judged = await scoreWithGemini(referenceImage, player1Image, player2Image, judgeModel);
+            const player1Score = judged.player1Score;
+            const player2Score = judged.player2Score;
+            const diff = Math.abs(player1Score - player2Score);
+            const winner: Winner = diff <= 0.5 ? 'tie' : (player1Score > player2Score ? 'player1' : 'player2');
+            return NextResponse.json({ player1Score, player2Score, winner, provider: 'gemini', judgeModel: judged.model, reasoning: judged.reasoning });
+        }
+
+        // Mode 2: direct base64 images provided -> judge with LLM
         {
             const { referenceImage, player1Image, player2Image } = body as {
                 referenceImage?: string;
@@ -200,11 +317,12 @@ export async function POST(request: NextRequest) {
                     { status: 400 },
                 );
             }
-            const [p1, p2] = await runPythonSimilarity(referenceImage, [player1Image, player2Image]);
-            const player1Score = Number.isFinite(p1) ? p1 : 1.0;
-            const player2Score = Number.isFinite(p2) ? p2 : 1.0;
-            const winner: Winner = player1Score === player2Score ? 'tie' : (player1Score > player2Score ? 'player1' : 'player2');
-            return NextResponse.json({ player1Score, player2Score, winner });
+            const judged = await scoreWithGemini(referenceImage, player1Image, player2Image);
+            const player1Score = judged.player1Score;
+            const player2Score = judged.player2Score;
+            const diff = Math.abs(player1Score - player2Score);
+            const winner: Winner = diff <= 0.5 ? 'tie' : (player1Score > player2Score ? 'player1' : 'player2');
+            return NextResponse.json({ player1Score, player2Score, winner, provider: 'gemini', judgeModel: judged.model, reasoning: judged.reasoning });
         }
     } catch (error) {
         console.error('Error in image similarity API:', error);
@@ -219,7 +337,9 @@ export async function GET(request: NextRequest) {
         const isRandom = searchParams.get('random');
         const query = searchParams.get('query');
         if (isRandom) {
-            const result = await getRandomReferenceDataUrl(query);
+            const kindParam = (searchParams.get('kind') || 'hd').toLowerCase();
+            const kind = kindParam === 'meme' ? 'meme' : 'hd';
+            const result = await getRandomReferenceDataUrl(kind, query);
             return NextResponse.json({ dataUrl: result.dataUrl, source: result.source });
         }
         return NextResponse.json({ error: 'Unsupported GET usage' }, { status: 400 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useState, useRef, type ReactNode } from 'react';
 import Link from 'next/link';
 
 type Scores = { p1: number; p2: number } | null;
@@ -95,6 +95,7 @@ function UploadCard({
 
 export default function ImageSimilarityPage() {
     const [referenceImage, setReferenceImage] = useState<string | null>(null);
+    const [refSource, setRefSource] = useState<'hd' | 'meme'>('hd');
     const [isFindingRef, setIsFindingRef] = useState(false);
     const [player1Image, setPlayer1Image] = useState<string | null>(null);
     const [player2Image, setPlayer2Image] = useState<string | null>(null);
@@ -108,6 +109,9 @@ export default function ImageSimilarityPage() {
     const FIXED_GEMINI_MODEL = 'gemini-2.5-flash-image';
     const [usedProvider, setUsedProvider] = useState<string | null>(null);
     const [usedModel, setUsedModel] = useState<string | null>(null);
+    const [judgeModel, setJudgeModel] = useState<string | null>(null);
+    const [reasoning, setReasoning] = useState<string | null>(null);
+    const [statusText, setStatusText] = useState<string | null>(null);
 
     const readyToCompare = Boolean(referenceImage && player1Image && player2Image);
 
@@ -130,26 +134,51 @@ export default function ImageSimilarityPage() {
         }
         setIsLoading(true);
         setError(null);
+        setStatusText('Generating Player 1 image (Gemini 2.5 Flash Image)…');
         try {
             const modelToSend = FIXED_GEMINI_MODEL;
-            const res = await fetch('/api/image-similarity', {
+            // Step 1: Generate Player 1 image
+            const resP1 = await fetch('/api/image-similarity', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode: 'generate-and-compare', referenceImage, p1Prompt, p2Prompt, geminiModel: modelToSend }),
+                body: JSON.stringify({ mode: 'generate-image', prompt: p1Prompt, geminiModel: modelToSend }),
             });
-            if (!res.ok) throw new Error(await res.text());
-            const data: { player1Score: number; player2Score: number; winner: 'player1' | 'player2' | 'tie'; player1Image: string; player2Image: string; provider?: string; model?: string } = await res.json();
-            setScores({ p1: data.player1Score, p2: data.player2Score });
-            setPlayer1Image(data.player1Image);
-            setPlayer2Image(data.player2Image);
-            setWinner(data.winner);
-            setUsedProvider(data.provider ?? null);
-            setUsedModel(data.model ?? null);
+            if (!resP1.ok) throw new Error(await resP1.text());
+            const gen1: { dataUrl: string; model?: string; provider?: string } = await resP1.json();
+            setPlayer1Image(gen1.dataUrl);
+            setUsedModel(gen1.model ?? modelToSend);
+            setUsedProvider(gen1.provider ?? 'gemini');
+
+            // Step 2: Generate Player 2 image
+            setStatusText('Generating Player 2 image (Gemini 2.5 Flash Image)…');
+            const resP2 = await fetch('/api/image-similarity', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: 'generate-image', prompt: p2Prompt, geminiModel: modelToSend }),
+            });
+            if (!resP2.ok) throw new Error(await resP2.text());
+            const gen2: { dataUrl: string } = await resP2.json();
+            setPlayer2Image(gen2.dataUrl);
+
+            // Step 3: Judge
+            setStatusText('Judging similarity with Gemini 2.5 Flash…');
+            const resJ = await fetch('/api/image-similarity', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: 'judge', referenceImage, player1Image: gen1.dataUrl, player2Image: gen2.dataUrl, judgeModel: 'gemini-2.5-flash' }),
+            });
+            if (!resJ.ok) throw new Error(await resJ.text());
+            const judged: { player1Score: number; player2Score: number; winner: 'player1' | 'player2' | 'tie'; judgeModel?: string; reasoning?: string } = await resJ.json();
+            setScores({ p1: judged.player1Score, p2: judged.player2Score });
+            setWinner(judged.winner);
+            setJudgeModel(judged.judgeModel ?? 'gemini-2.5-flash');
+            setReasoning(judged.reasoning ?? null);
         } catch (e) {
             console.error(e);
             setError('Failed to generate images. Ensure the required API is available.');
         } finally {
             setIsLoading(false);
+            setStatusText(null);
         }
     };
 
@@ -181,12 +210,26 @@ export default function ImageSimilarityPage() {
                     <UploadCard title="Reference Image" required image={referenceImage} loading={isFindingRef} onZoom={() => referenceImage && setZoomSrc(referenceImage)} variant="reference">
                         <div className="mt-4 space-y-3">
                             <div className="space-y-3 w-full">
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <div className="sm:w-1/2">
+                                        <label className="block text-sm text-gray-300 mb-1">Reference Source</label>
+                                        <select
+                                            value={refSource}
+                                            onChange={(e) => setRefSource((e.target.value as 'hd' | 'meme'))}
+                                            disabled={isFindingRef || isLoading}
+                                            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded"
+                                        >
+                                            <option value="hd">HD Photo</option>
+                                            <option value="meme">Meme</option>
+                                        </select>
+                                    </div>
+                                </div>
                                 <button
                                     onClick={async () => {
                                         setIsFindingRef(true);
                                         setError(null);
                                         try {
-                                            const res = await fetch('/api/image-similarity?random=1');
+                                            const res = await fetch(`/api/image-similarity?random=1&kind=${refSource}`);
                                             if (!res.ok) throw new Error(await res.text());
                                             const data: { dataUrl: string } = await res.json();
                                             setReferenceImage(data.dataUrl);
@@ -199,7 +242,7 @@ export default function ImageSimilarityPage() {
                                     }}
                                     className="w-full px-4 py-3 text-lg bg-purple-600 hover:bg-purple-700 rounded disabled:bg-gray-700"
                                     disabled={isFindingRef || isLoading}
-                                >Generate Random HD Image</button>
+                                >{refSource === 'meme' ? 'Find Random Meme' : 'Find Random HD Image'}</button>
                                 <button onClick={() => setReferenceImage(null)} className="w-full px-4 py-3 text-lg bg-gray-700 hover:bg-gray-600 rounded">Reset</button>
                             </div>
                         </div>
@@ -238,10 +281,25 @@ export default function ImageSimilarityPage() {
                         disabled={!referenceImage || !p1Prompt.trim() || !p2Prompt.trim() || isLoading || isFindingRef}
                         className="w-full px-8 py-5 text-lg rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 disabled:from-gray-700 disabled:to-gray-700 hover:from-indigo-600 hover:to-purple-600 transition shadow"
                     >
-                        {isFindingRef ? 'Finding image..' : (isLoading ? 'Comparing…' : '⚡ Compare!')}
+                        {isFindingRef ? 'Finding image..' : (isLoading ? 'Comparing…' : '⚡ Generate and Compare!')}
                     </button>
                     <button onClick={reset} className="w-full px-8 py-5 text-lg rounded-lg bg-gray-700 hover:bg-gray-600 transition shadow">Reset Game</button>
                 </div>
+
+                {isLoading && (
+                    <div className="mt-4 bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center gap-3">
+                        <span className="inline-block w-5 h-5 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+                        <div className="text-gray-300">
+                            <div className="font-medium">{statusText}</div>
+                            <div className="text-xs text-gray-500 mt-1">Steps: Generate P1 → Generate P2 → Judge</div>
+                        </div>
+                        <div className="ml-auto flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-white/70 animate-bounce [animation-delay:-0.3s]"></span>
+                            <span className="w-2 h-2 rounded-full bg-white/70 animate-bounce [animation-delay:-0.15s]"></span>
+                            <span className="w-2 h-2 rounded-full bg-white/70 animate-bounce"></span>
+                        </div>
+                    </div>
+                )}
 
                 {error && (
                     <div className="mt-6 p-4 bg-red-900/50 border border-red-700 rounded text-red-200 max-w-2xl">{error}</div>
@@ -254,16 +312,21 @@ export default function ImageSimilarityPage() {
                             <ScoreCard label="Player 1" score={scores.p1} color="bg-purple-400" />
                             <ScoreCard label="Player 2" score={scores.p2} color="bg-purple-400" />
                         </div>
-                        <div className="flex justify-center mt-6">
-                            {winner && (
-                                <div className="px-6 py-3 bg-red-600 rounded-full font-semibold shadow">
-                                    {winner === 'tie' ? '🤝 Draw!' : (winner === 'player1' ? '🏆 Player 1 Wins!' : '🏆 Player 2 Wins!')}
-                                </div>
-                            )}
-                        </div>
+                        {winner && (
+                            <div className="mt-6 w-full px-6 py-6 text-3xl md:text-4xl text-center bg-red-700 rounded-3xl font-extrabold tracking-wide shadow-lg">
+                                {winner === 'tie' ? '🤝 Draw!' : (winner === 'player1' ? '🏆 Player 1 Wins!' : '🏆 Player 2 Wins!')}
+                            </div>
+                        )}
                         <div className="mt-4 text-center text-gray-400 text-sm">
-                            Model: <span className="text-gray-200">{usedModel || FIXED_GEMINI_MODEL}</span>
+                            Gemini model: <span className="text-gray-200">{usedModel || FIXED_GEMINI_MODEL}</span>
+                            {judgeModel && (<span className="ml-3">Judge model: <span className="text-gray-200">{judgeModel}</span></span>)}
                         </div>
+                        {reasoning && (
+                            <div className="mt-6 bg-black/40 border border-white/10 rounded-lg p-4 text-sm text-gray-200 whitespace-pre-wrap">
+                                <div className="text-gray-400 mb-2 font-semibold">Why the judge chose this:</div>
+                                {reasoning}
+                            </div>
+                        )}
                     </div>
                 )}
 

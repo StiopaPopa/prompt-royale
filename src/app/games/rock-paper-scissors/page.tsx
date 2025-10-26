@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import GameWrapper from "@/components/GameWrapper";
+import Navigation from "@/components/Navigation";
 
 type Move = "rock" | "paper" | "scissors";
 
@@ -111,27 +113,9 @@ export default function RockPaperScissorsPage() {
   const scores = getCurrentScores();
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
-      {/* Navigation */}
-      <nav className="border-b border-gray-800/50">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-8">
-              <Link href="/" className="font-mono-brand text-xl text-white">
-                prompt-royale
-              </Link>
-              <div className="hidden md:flex items-center gap-6 text-sm">
-                <Link href="/" className="text-gray-400 hover:text-white transition-colors">
-                  Games
-                </Link>
-                <Link href="/" className="text-gray-400 hover:text-white transition-colors">
-                  Leaderboard
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <GameWrapper>
+      <div className="min-h-screen bg-[#0a0a0a] text-white">
+        <Navigation />
 
       <div className="container mx-auto px-6 py-8 max-w-7xl">
         {/* Header */}
@@ -393,7 +377,7 @@ export default function RockPaperScissorsPage() {
                   <div className="text-center mb-6">
                     {gameResult.finalWinner === "tie" ? (
                       <div className="text-3xl font-semibold text-yellow-400 mb-2">
-                        It's a Tie
+                        It&apos;s a Tie
                       </div>
                     ) : (
                       <div
@@ -558,6 +542,7 @@ export default function RockPaperScissorsPage() {
             </div>
           )}
       </div>
-    </div>
+      </div>
+    </GameWrapper>
   );
 }

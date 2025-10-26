@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -12,10 +12,16 @@ export default function Home() {
                 prompt-royale
               </Link>
               <div className="hidden md:flex items-center gap-6 text-sm">
-                <Link href="/" className="text-gray-400 hover:text-white transition-colors">
+                <Link
+                  href="/"
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
                   Games
                 </Link>
-                <Link href="/" className="text-gray-400 hover:text-white transition-colors">
+                <Link
+                  href="/"
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
                   Leaderboard
                 </Link>
               </div>
@@ -36,16 +42,15 @@ export default function Home() {
               benchmarking humans on LLM prompt engineering
             </p>
             <p className="text-base text-gray-500 leading-relaxed">
-              Compete on prompting LLMs on classic games. Battle AIs head-to-head and climb the leaderboard.
+              Compete on prompting LLMs on classic games. Battle AIs
+              head-to-head and climb the leaderboard.
             </p>
           </div>
 
           {/* Right Side - Leaderboard */}
           <div className="bg-[#111111] rounded-lg border border-gray-800/50 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-800/50">
-              <h3 className="text-lg font-semibold text-white">
-                Leaderboard
-              </h3>
+              <h3 className="text-lg font-semibold text-white">Leaderboard</h3>
             </div>
 
             {/* Table */}
@@ -103,7 +108,10 @@ export default function Home() {
             </div>
 
             <div className="px-6 py-3 border-t border-gray-800/50 text-center">
-              <Link href="/" className="text-sm text-gray-400 hover:text-white transition-colors">
+              <Link
+                href="/"
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
                 View full leaderboard →
               </Link>
             </div>
@@ -159,7 +167,8 @@ export default function Home() {
                     Chess
                   </h3>
                   <p className="text-sm text-gray-400 leading-relaxed">
-                    30 moves each player. Winner determined by engine evaluation.
+                    30 moves each player. Winner determined by engine
+                    evaluation.
                   </p>
                 </div>
               </div>
@@ -209,7 +218,8 @@ export default function Home() {
                     Image Replication
                   </h3>
                   <p className="text-sm text-gray-400 leading-relaxed">
-                    Generate images from prompts. Closest match to reference wins!
+                    Generate images from prompts. Closest match to reference
+                    wins!
                   </p>
                 </div>
               </div>
@@ -235,6 +245,56 @@ export default function Home() {
                   </h3>
                   <p className="text-sm text-gray-400 leading-relaxed">
                     Deduce the secret celebrity from a pool of 24 famous people!
+                  </p>
+                </div>
+              </div>
+            </Link>
+
+            {/* Battleship Tile */}
+            <Link href="/games/battleship" className="group">
+              <div className="bg-[#111111] rounded-lg border border-gray-800/50 hover:border-gray-700 transition-all duration-200 overflow-hidden">
+                <div className="aspect-video bg-gradient-to-br from-blue-900/20 to-slate-900/20 flex items-center justify-center">
+                  <span className="text-6xl">🚢</span>
+                </div>
+                <div className="p-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="px-2 py-1 text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded">
+                      Strategy
+                    </span>
+                    <span className="px-2 py-1 text-xs font-medium bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded">
+                      Medium
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors">
+                    Battleship
+                  </h3>
+                  <p className="text-sm text-gray-400 leading-relaxed">
+                    Strategically place ships and sink your opponent&apos;s fleet!
+                  </p>
+                </div>
+              </div>
+            </Link>
+
+            {/* Quant Trading Tile */}
+            <Link href="/games/quant-trading" className="group lg:col-start-2">
+              <div className="bg-[#111111] rounded-lg border border-gray-800/50 hover:border-gray-700 transition-all duration-200 overflow-hidden">
+                <div className="aspect-video bg-gradient-to-br from-emerald-900/20 to-green-900/20 flex items-center justify-center">
+                  <span className="text-6xl">📈</span>
+                </div>
+                <div className="p-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="px-2 py-1 text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20 rounded">
+                      Financial
+                    </span>
+                    <span className="px-2 py-1 text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 rounded">
+                      Hard
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors">
+                    Quant Trading
+                  </h3>
+                  <p className="text-sm text-gray-400 leading-relaxed">
+                    Compete with AI trading strategies on real market data!
                   </p>
                 </div>
               </div>

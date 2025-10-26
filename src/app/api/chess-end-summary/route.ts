@@ -20,15 +20,15 @@ export async function POST(request: NextRequest) {
     const body: EndSummaryRequest = await request.json();
     const { winner, gameEndReason, whitePrompt, blackPrompt, evaluation, evaluationInPawns } = body;
 
-    const systemPrompt = `You are a hilarious, charismatic chess commentator wrapping up the game. Give 2 sentences: First sentence celebrates/roasts the result with humor and wit. Second sentence explains why the winning strategy worked better (or why both strategies failed equally in a draw). Be entertaining and insightful.`;
+    const systemPrompt = `You are a hilarious, charismatic chess commentator. Give EXACTLY 2 short sentences, no more. First celebrates/roasts with humor. Second explains why the winning strategy worked. Keep it brief and punchy.`;
 
     let userPrompt = "";
     if (winner === "draw") {
-      userPrompt = `Draw! ${gameEndReason}. White: "${whitePrompt}". Black: "${blackPrompt}". Give 2 funny sentences explaining why both strategies canceled each other out.`;
+      userPrompt = `Draw! ${gameEndReason}. White: "${whitePrompt}". Black: "${blackPrompt}". EXACTLY 2 short sentences.`;
     } else {
       const winnerStrategy = winner === "white" ? whitePrompt : blackPrompt;
       const loserStrategy = winner === "white" ? blackPrompt : whitePrompt;
-      userPrompt = `${winner.charAt(0).toUpperCase() + winner.slice(1)} wins! ${gameEndReason}. Winner: "${winnerStrategy}". Loser: "${loserStrategy}". Give 2 sentences: one celebrating/roasting, one explaining why the winning strategy dominated.`;
+      userPrompt = `${winner.charAt(0).toUpperCase() + winner.slice(1)} wins! ${gameEndReason}. Winner: "${winnerStrategy}". Loser: "${loserStrategy}". EXACTLY 2 short sentences: celebrate, then explain why they won.`;
     }
 
     const completion = await openai.chat.completions.create({
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
         { role: "user", content: userPrompt },
       ],
       temperature: 1.0,
-      max_tokens: 150,
+      max_tokens: 80,
     });
 
     const summary = completion.choices[0].message.content || "What a game!";

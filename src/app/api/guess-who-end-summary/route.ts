@@ -35,11 +35,11 @@ export async function POST(request: NextRequest) {
       player2Target,
     } = body;
 
-    const systemPrompt = `You are a hilarious, charismatic game show host wrapping up a Guess Who battle. Give 2 sentences: First sentence celebrates/roasts the result with humor and wit. Second sentence explains why the winning strategy worked better (or why both strategies failed/succeeded equally in a tie). Be entertaining and insightful.`;
+    const systemPrompt = `You are a hilarious game show host. Give EXACTLY 2 short sentences, no more. First celebrates/roasts with humor. Second explains why the winning strategy was smarter. Keep it brief and punchy.`;
 
     let userPrompt = "";
     if (winner === "tie") {
-      userPrompt = `Tie! ${winnerReason}. Player 1 used ${player1QuestionsUsed} questions (${player1Correct ? "correct" : "failed"}), target was ${player1Target}. Player 2 used ${player2QuestionsUsed} questions (${player2Correct ? "correct" : "failed"}), target was ${player2Target}. P1 Strategy: "${player1Policy}". P2 Strategy: "${player2Policy}". Give 2 funny sentences explaining why both strategies performed equally.`;
+      userPrompt = `Tie! ${winnerReason}. P1 used ${player1QuestionsUsed} questions (${player1Correct ? "correct" : "failed"}), target was ${player1Target}. P2 used ${player2QuestionsUsed} questions (${player2Correct ? "correct" : "failed"}), target was ${player2Target}. EXACTLY 2 short sentences.`;
     } else {
       const winnerQuestions = winner === 1 ? player1QuestionsUsed : player2QuestionsUsed;
       const winnerStrategy = winner === 1 ? player1Policy : player2Policy;
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       const loserCorrect = winner === 1 ? player2Correct : player1Correct;
       const loserTarget = winner === 1 ? player2Target : player1Target;
 
-      userPrompt = `Player ${winner} wins! ${winnerReason}. Winner used ${winnerQuestions} questions (${winnerCorrect ? "correct" : "failed"}) trying to guess ${winnerTarget}, strategy: "${winnerStrategy}". Loser used ${loserQuestions} questions (${loserCorrect ? "correct" : "failed"}) trying to guess ${loserTarget}, strategy: "${loserStrategy}". Give 2 sentences: one celebrating/roasting, one explaining why the winning strategy dominated.`;
+      userPrompt = `Player ${winner} wins! ${winnerReason}. Winner used ${winnerQuestions} questions (${winnerCorrect ? "correct" : "failed"}) for ${winnerTarget}, strategy: "${winnerStrategy}". Loser used ${loserQuestions} questions (${loserCorrect ? "correct" : "failed"}) for ${loserTarget}, strategy: "${loserStrategy}". EXACTLY 2 short sentences: celebrate, then explain.`;
     }
 
     const completion = await openai.chat.completions.create({
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
         { role: "user", content: userPrompt },
       ],
       temperature: 1.0,
-      max_tokens: 150,
+      max_tokens: 80,
     });
 
     const summary = completion.choices[0].message.content || "What a game!";

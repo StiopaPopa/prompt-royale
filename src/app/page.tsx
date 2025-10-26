@@ -276,7 +276,7 @@ export default function Home() {
             </Link>
 
             {/* Quant Trading Tile */}
-            <Link href="/games/quant-trading" className="group">
+            <Link href="/games/quant-trading" className="group lg:col-start-2">
               <div className="bg-[#111111] rounded-lg border border-gray-800/50 hover:border-gray-700 transition-all duration-200 overflow-hidden">
                 <div className="aspect-video bg-gradient-to-br from-emerald-900/20 to-green-900/20 flex items-center justify-center">
                   <span className="text-6xl">📈</span>

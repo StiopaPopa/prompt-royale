@@ -68,11 +68,29 @@ if __name__ == '__main__':
     throw lastError ?? new Error('Unable to invoke Python to compute similarity');
 }
 
-async function fetchAsDataUrl(url: string): Promise<string> {
+function guessImageMimeFromUrl(url: string): string | null {
+    const m = url.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
+    const ext = m?.[1]?.toLowerCase();
+    if (!ext) return null;
+    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+    if (ext === 'png') return 'image/png';
+    if (ext === 'gif') return 'image/gif';
+    if (ext === 'webp') return 'image/webp';
+    return null;
+}
+
+async function fetchAsDataUrl(url: string, fallbackMime?: string): Promise<string> {
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
     const buf = Buffer.from(await res.arrayBuffer());
-    const mime = res.headers.get('content-type') || 'image/jpeg';
+    let mime = (res.headers.get('content-type') || '').split(';')[0].trim();
+    if (!mime || !mime.startsWith('image/')) {
+        mime = fallbackMime || guessImageMimeFromUrl(url) || 'image/jpeg';
+    }
+    if (!mime.startsWith('image/')) {
+        // If still not an image, refuse so caller can fallback to a different URL
+        throw new Error(`URL is not an image (content-type: ${mime || 'unknown'})`);
+    }
     return `data:${mime};base64,${buf.toString('base64')}`;
 }
 
@@ -82,10 +100,21 @@ async function getRandomReferenceDataUrl(kind: 'hd' | 'meme' = 'hd', query?: str
         const res = await fetch('https://meme-api.com/gimme', { cache: 'no-store' });
         if (!res.ok) throw new Error(`Failed to fetch meme: ${res.status}`);
         const json = await res.json();
-        const url: string | undefined = json?.url || json?.preview?.[json?.preview?.length - 1];
-        if (!url) throw new Error('Meme API returned no URL');
-        const dataUrl = await fetchAsDataUrl(url);
-        return { dataUrl, source: 'meme' };
+        const previews: string[] = Array.isArray(json?.preview) ? json.preview : [];
+        const candidates = [json?.url, ...previews].filter(Boolean) as string[];
+        // Prefer static image extensions
+        const pick = candidates.find((u) => /\.(png|jpe?g|gif|webp)$/i.test(u)) || candidates[0];
+        if (!pick) throw new Error('Meme API returned no usable image URL');
+        try {
+            const dataUrl = await fetchAsDataUrl(pick, 'image/jpeg');
+            return { dataUrl, source: 'meme' };
+        } catch (e) {
+            // Fallback to picsum if the meme was a video or unsupported type
+            const seed = encodeURIComponent(query || String(Date.now()));
+            const picsumUrl = `https://picsum.photos/seed/${seed}/1024/1024`;
+            const dataUrl = await fetchAsDataUrl(picsumUrl, 'image/jpeg');
+            return { dataUrl, source: 'picsum' };
+        }
     }
     // Default HD photo via Lorem Picsum
     const seed = encodeURIComponent(query || String(Date.now()));

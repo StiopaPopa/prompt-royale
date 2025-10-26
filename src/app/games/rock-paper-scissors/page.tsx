@@ -41,6 +41,64 @@ export default function RockPaperScissorsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showReasonings, setShowReasonings] = useState(false);
+  const [commentaryEnabled, setCommentaryEnabled] = useState(true);
+  const [currentCommentary, setCurrentCommentary] = useState<string>("");
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+  // Function to generate and play end-of-game summary
+  const generateEndSummary = async (result: GameResult): Promise<void> => {
+    if (!commentaryEnabled) return;
+
+    return new Promise(async (resolve) => {
+      try {
+        // Generate end summary text
+        const summaryResponse = await fetch("/api/rps-end-summary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            finalWinner: result.finalWinner,
+            player1Wins: result.player1Wins,
+            player2Wins: result.player2Wins,
+            ties: result.ties,
+            player1Prompt: result.player1Prompt,
+            player2Prompt: result.player2Prompt,
+          }),
+        });
+
+        const { summary } = await summaryResponse.json();
+        setCurrentCommentary(summary);
+
+        // Generate TTS audio
+        const ttsResponse = await fetch("/api/text-to-speech", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: summary }),
+        });
+
+        const audioBlob = await ttsResponse.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        // Play audio and wait for it to finish
+        setIsPlayingAudio(true);
+        audio.onended = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        audio.onerror = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        await audio.play();
+      } catch (error) {
+        console.error("Error generating end summary:", error);
+        setIsPlayingAudio(false);
+        resolve();
+      }
+    });
+  };
 
   const startGame = async () => {
     if (!player1Prompt.trim() || !player2Prompt.trim()) {
@@ -77,6 +135,9 @@ export default function RockPaperScissorsPage() {
         await new Promise((resolve) => setTimeout(resolve, 50));
         setCurrentRound(i);
       }
+
+      // Generate and play end-of-game summary
+      await generateEndSummary(result);
 
       setGameState("finished");
     } catch (err) {
@@ -387,59 +448,28 @@ export default function RockPaperScissorsPage() {
                 </div>
               </div>
 
-              {/* Final Result */}
-              {gameState === "finished" && (
-                <div className="bg-[#111111] border border-gray-800/50 rounded-lg p-8 mb-6">
-                  <div className="text-center mb-6">
-                    {gameResult.finalWinner === "tie" ? (
-                      <div className="text-3xl font-semibold text-yellow-400 mb-2">
-                        It's a Tie
+              {/* Commentary Display - Shows as soon as commentary is generated */}
+              {commentaryEnabled && currentCommentary && (
+                <div className="mb-6 bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/30 rounded-lg p-6">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                        <span className="text-xl">🎙️</span>
                       </div>
-                    ) : (
-                      <div
-                        className={`text-3xl font-semibold mb-2 ${
-                          gameResult.finalWinner === "player1"
-                            ? "text-blue-400"
-                            : "text-red-400"
-                        }`}
-                      >
-                        {gameResult.finalWinner === "player1"
-                          ? "Player 1"
-                          : "Player 2"}{" "}
-                        Wins
-                      </div>
-                    )}
-                    <p className="text-gray-500 text-sm">Battle Complete</p>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-6 max-w-xl mx-auto mb-6">
-                    <div className="text-center">
-                      <div className="text-2xl font-mono font-bold text-blue-400">
-                        {gameResult.player1Wins}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">P1 Wins</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-mono font-bold text-gray-400">
-                        {gameResult.ties}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-purple-400 font-medium text-sm">Commentator's Take</span>
+                        {isPlayingAudio && (
+                          <div className="flex gap-1">
+                            <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse"></div>
+                            <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: "150ms"}}></div>
+                            <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: "300ms"}}></div>
+                          </div>
+                        )}
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">Ties</div>
+                      <p className="text-gray-300 text-sm leading-relaxed">{currentCommentary}</p>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-mono font-bold text-red-400">
-                        {gameResult.player2Wins}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">P2 Wins</div>
-                    </div>
-                  </div>
-
-                  <div className="text-center">
-                    <button
-                      onClick={resetGame}
-                      className="bg-white text-black hover:bg-gray-100 font-medium py-2 px-6 rounded-lg text-sm transition-all duration-200"
-                    >
-                      Play Again
-                    </button>
                   </div>
                 </div>
               )}
@@ -553,6 +583,18 @@ export default function RockPaperScissorsPage() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Play Again Button at Bottom */}
+              {gameState === "finished" && (
+                <div className="text-center mt-8">
+                  <button
+                    onClick={resetGame}
+                    className="bg-white text-black hover:bg-gray-100 font-medium py-3 px-8 rounded-lg text-sm transition-all duration-200"
+                  >
+                    Play Again
+                  </button>
                 </div>
               )}
             </div>

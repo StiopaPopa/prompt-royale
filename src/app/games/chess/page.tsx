@@ -138,6 +138,128 @@ export default function ChessPage() {
   const [error, setError] = useState<string | null>(null);
   const [showReasonings, setShowReasonings] = useState(true);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const [commentaryEnabled, setCommentaryEnabled] = useState(true);
+  const [currentCommentary, setCurrentCommentary] = useState<string>("");
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [audioQueue, setAudioQueue] = useState<HTMLAudioElement[]>([]);
+
+  // Function to generate and play commentary (returns promise that resolves when audio finishes)
+  const generateCommentary = async (moves: MoveResult[]): Promise<void> => {
+    if (!commentaryEnabled || moves.length === 0) return;
+
+    return new Promise(async (resolve) => {
+      try {
+        // Get recent moves (last 3-5 moves for context)
+        const recentMoves = moves.slice(Math.max(0, moves.length - 5));
+
+        // Generate commentary text
+        const commentaryResponse = await fetch("/api/chess-commentary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            recentMoves: recentMoves.map(m => ({
+              moveNumber: m.moveNumber,
+              player: m.player,
+              san: m.san,
+              reasoning: m.reasoning,
+            })),
+            currentPosition: moves[moves.length - 1].fen,
+            gameContext: {
+              whitePrompt: whitePrompt,
+              blackPrompt: blackPrompt,
+            },
+          }),
+        });
+
+        const { commentary } = await commentaryResponse.json();
+        setCurrentCommentary(commentary);
+
+        // Generate TTS audio
+        const ttsResponse = await fetch("/api/text-to-speech", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: commentary }),
+        });
+
+        const audioBlob = await ttsResponse.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        // Play audio and wait for it to finish
+        setIsPlayingAudio(true);
+        audio.onended = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        audio.onerror = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        await audio.play();
+      } catch (error) {
+        console.error("Error generating commentary:", error);
+        setIsPlayingAudio(false);
+        resolve();
+      }
+    });
+  };
+
+  // Function to generate and play end-of-game summary
+  const generateEndSummary = async (result: GameResult): Promise<void> => {
+    if (!commentaryEnabled) return;
+
+    return new Promise(async (resolve) => {
+      try {
+        // Generate end summary text
+        const summaryResponse = await fetch("/api/chess-end-summary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            winner: result.winner,
+            gameEndReason: result.gameEndReason,
+            whitePrompt: result.whitePrompt,
+            blackPrompt: result.blackPrompt,
+            evaluation: result.evaluation,
+            evaluationInPawns: result.evaluationInPawns,
+          }),
+        });
+
+        const { summary } = await summaryResponse.json();
+        setCurrentCommentary(summary);
+
+        // Generate TTS audio
+        const ttsResponse = await fetch("/api/text-to-speech", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: summary }),
+        });
+
+        const audioBlob = await ttsResponse.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        // Play audio and wait for it to finish
+        setIsPlayingAudio(true);
+        audio.onended = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        audio.onerror = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        await audio.play();
+      } catch (error) {
+        console.error("Error generating end summary:", error);
+        setIsPlayingAudio(false);
+        resolve();
+      }
+    });
+  };
 
   const startGame = async () => {
     if (!whitePrompt.trim() || !blackPrompt.trim()) {
@@ -206,8 +328,24 @@ export default function ChessPage() {
                   moves: [...moves],
                 }));
                 setCurrentMoveIndex(moves.length);
-                
-                // Small delay for visual effect
+
+                // Generate commentary every 5 moves and wait for it to finish
+                if (moves.length % 5 === 0) {
+                  try {
+                    await generateCommentary(moves);
+                  } catch (commentaryError) {
+                    console.error("Error generating commentary:", commentaryError);
+                    // Continue game even if commentary fails
+                  }
+                }
+
+                // Check if this move ended the game (checkmate or stalemate)
+                if (data.move.isCheckmate || data.move.isStalemate || data.move.isDraw) {
+                  // Game ended early, continue to read the end event
+                  console.log("Game ended early with move:", data.move.san);
+                }
+
+                // Small delay for visual effect (after commentary too)
                 await new Promise((resolve) => setTimeout(resolve, 100));
               } else if (data.type === "evaluating") {
                 // Stockfish evaluation in progress
@@ -235,21 +373,35 @@ export default function ChessPage() {
 
       // Update final result
       if (gameEnd) {
-        setGameResult((prev) => ({
-          ...prev!,
-          winner: gameEnd!.winner,
-          gameEndReason: gameEnd!.gameEndReason,
-          pgn: gameEnd!.pgn,
-        }));
+        const finalResult: GameResult = {
+          moves: moves,
+          winner: gameEnd.winner,
+          gameEndReason: gameEnd.gameEndReason,
+          whitePrompt: whitePrompt,
+          blackPrompt: blackPrompt,
+          pgn: gameEnd.pgn,
+          evaluation: gameResult?.evaluation,
+          evaluationInPawns: gameResult?.evaluationInPawns,
+        };
+        setGameResult(finalResult);
+
+        // Generate and play end-of-game summary (with error handling)
+        try {
+          await generateEndSummary(finalResult);
+        } catch (summaryError) {
+          console.error("Error generating end summary:", summaryError);
+          // Continue anyway - don't block the game from finishing
+        }
       }
 
       setGameState("finished");
     } catch (err) {
+      console.error("Error in chess game:", err);
       setError("Failed to play chess game. Please try again.");
       setGameState("setup");
-      console.error(err);
     } finally {
       setIsLoading(false);
+      setIsEvaluating(false);
     }
   };
 
@@ -260,6 +412,8 @@ export default function ChessPage() {
     setWhitePrompt("");
     setBlackPrompt("");
     setError(null);
+    setCurrentCommentary("");
+    setIsPlayingAudio(false);
   };
 
   const getCurrentFEN = () => {
@@ -352,6 +506,21 @@ export default function ChessPage() {
                 <p className="text-red-300 text-sm">{error}</p>
               </div>
             )}
+
+            {/* Commentary Toggle */}
+            <div className="flex items-center justify-center gap-3 mb-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={commentaryEnabled}
+                  onChange={(e) => setCommentaryEnabled(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-600 bg-black/40 text-blue-500 focus:ring-blue-500/50"
+                />
+                <span className="text-gray-300 text-sm">
+                  Enable Live Commentary (AI Voice)
+                </span>
+              </label>
+            </div>
 
             <div className="text-center">
               <button
@@ -478,6 +647,32 @@ export default function ChessPage() {
                       </div>
                     </div>
 
+                    {/* Live Commentary Display */}
+                    {commentaryEnabled && currentCommentary && (
+                      <div className="w-full max-w-2xl bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/30 rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0">
+                            <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                              <span className="text-xl">🎙️</span>
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-purple-400 font-medium text-sm">Live Commentary</span>
+                              {isPlayingAudio && (
+                                <div className="flex gap-1">
+                                  <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse"></div>
+                                  <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: "150ms"}}></div>
+                                  <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: "300ms"}}></div>
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-gray-300 text-sm leading-relaxed">{currentCommentary}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Move Reasoning Below */}
                     {currentMoveIndex > 0 && currentMoveIndex <= gameResult.moves.length && (
                       <div className="w-full max-w-2xl">
@@ -596,6 +791,25 @@ export default function ChessPage() {
                 </button>
               </div>
             </div>
+
+            {/* End Game Commentary */}
+            {commentaryEnabled && currentCommentary && (
+              <div className="bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/30 rounded-lg p-6 mb-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center">
+                      <span className="text-2xl">🎙️</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-purple-400 font-semibold text-base">Commentator's Take</span>
+                    </div>
+                    <p className="text-gray-300 text-base leading-relaxed">{currentCommentary}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Player Strategies Display */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -12,10 +12,16 @@ export default function Home() {
                 prompt-royale
               </Link>
               <div className="hidden md:flex items-center gap-6 text-sm">
-                <Link href="/" className="text-gray-400 hover:text-white transition-colors">
+                <Link
+                  href="/"
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
                   Games
                 </Link>
-                <Link href="/" className="text-gray-400 hover:text-white transition-colors">
+                <Link
+                  href="/"
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
                   Leaderboard
                 </Link>
               </div>
@@ -33,19 +39,18 @@ export default function Home() {
               prompt-royale
             </h1>
             <p className="text-xl text-gray-400 leading-relaxed mb-4">
-              benchmarking humans on LLM prompt engineering 
+              benchmarking humans on LLM prompt engineering
             </p>
             <p className="text-base text-gray-500 leading-relaxed">
-              Compete on prompting LLMs on classic games. Battle AIs head-to-head and climb the leaderboard.
+              Compete on prompting LLMs on classic games. Battle AIs
+              head-to-head and climb the leaderboard.
             </p>
           </div>
 
           {/* Right Side - Leaderboard */}
           <div className="bg-[#111111] rounded-lg border border-gray-800/50 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-800/50">
-              <h3 className="text-lg font-semibold text-white">
-                Leaderboard
-              </h3>
+              <h3 className="text-lg font-semibold text-white">Leaderboard</h3>
             </div>
 
             {/* Table */}
@@ -101,9 +106,12 @@ export default function Home() {
                 </tbody>
               </table>
             </div>
-            
+
             <div className="px-6 py-3 border-t border-gray-800/50 text-center">
-              <Link href="/" className="text-sm text-gray-400 hover:text-white transition-colors">
+              <Link
+                href="/"
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
                 View full leaderboard →
               </Link>
             </div>
@@ -113,7 +121,7 @@ export default function Home() {
         {/* Games Section */}
         <div className="mb-8">
           <h2 className="text-2xl font-semibold text-white mb-6">Games</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Rock Paper Scissors Tile */}
             <Link href="/games/rock-paper-scissors" className="group">
@@ -159,7 +167,8 @@ export default function Home() {
                     Chess
                   </h3>
                   <p className="text-sm text-gray-400 leading-relaxed">
-                    30 moves each player. Winner determined by engine evaluation.
+                    30 moves each player. Winner determined by engine
+                    evaluation.
                   </p>
                 </div>
               </div>
@@ -209,7 +218,8 @@ export default function Home() {
                     Image Replication
                   </h3>
                   <p className="text-sm text-gray-400 leading-relaxed">
-                    Generate images from prompts. Closest match to reference wins!
+                    Generate images from prompts. Closest match to reference
+                    wins!
                   </p>
                 </div>
               </div>
@@ -260,6 +270,31 @@ export default function Home() {
                   </h3>
                   <p className="text-sm text-gray-400 leading-relaxed">
                     Strategically place ships and sink your opponent&apos;s fleet!
+                  </p>
+                </div>
+              </div>
+            </Link>
+
+            {/* Quant Trading Tile */}
+            <Link href="/games/quant-trading" className="group">
+              <div className="bg-[#111111] rounded-lg border border-gray-800/50 hover:border-gray-700 transition-all duration-200 overflow-hidden">
+                <div className="aspect-video bg-gradient-to-br from-emerald-900/20 to-green-900/20 flex items-center justify-center">
+                  <span className="text-6xl">📈</span>
+                </div>
+                <div className="p-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="px-2 py-1 text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20 rounded">
+                      Financial
+                    </span>
+                    <span className="px-2 py-1 text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 rounded">
+                      Hard
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors">
+                    Quant Trading
+                  </h3>
+                  <p className="text-sm text-gray-400 leading-relaxed">
+                    Compete with AI trading strategies on real market data!
                   </p>
                 </div>
               </div>

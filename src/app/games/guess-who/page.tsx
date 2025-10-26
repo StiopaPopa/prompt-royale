@@ -169,6 +169,68 @@ export default function GuessWhoPage() {
   const [player2Eliminated, setPlayer2Eliminated] = useState<Set<string>>(
     new Set()
   );
+  const [currentCommentary, setCurrentCommentary] = useState<string>("");
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+  const generateEndSummary = async (result: GameResult): Promise<void> => {
+    return new Promise(async (resolve) => {
+      try {
+        // Step 1: Generate end summary text from API
+        const summaryResponse = await fetch("/api/guess-who-end-summary", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            winner: result.winner,
+            winnerReason: result.winnerReason,
+            player1Policy: result.player1Policy,
+            player2Policy: result.player2Policy,
+            player1QuestionsUsed: result.player1.questionsUsed,
+            player2QuestionsUsed: result.player2.questionsUsed,
+            player1Correct: result.player1.correct,
+            player2Correct: result.player2.correct,
+            player1Target: result.player1.targetPerson,
+            player2Target: result.player2.targetPerson,
+          }),
+        });
+
+        const { summary } = await summaryResponse.json();
+        setCurrentCommentary(summary);
+
+        // Step 2: Convert summary text to audio via TTS
+        const ttsResponse = await fetch("/api/text-to-speech", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ text: summary }),
+        });
+
+        const audioBlob = await ttsResponse.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        // Step 3: Play audio and wait for completion
+        setIsPlayingAudio(true);
+        audio.onended = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        audio.onerror = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        await audio.play();
+      } catch (error) {
+        console.error("Error generating end summary:", error);
+        setIsPlayingAudio(false);
+        resolve();
+      }
+    });
+  };
 
   const handleStartGame = async () => {
     if (!player1Policy.trim() || !player2Policy.trim()) {
@@ -329,16 +391,22 @@ export default function GuessWhoPage() {
 
       // Update final result
       if (gameEnd) {
-        setResult((prev) => ({
-          ...prev!,
-          winner: gameEnd!.winner,
-          winnerReason: gameEnd!.winnerReason,
-          player1: gameEnd!.player1,
-          player2: gameEnd!.player2,
-        }));
-      }
+        const finalResult = {
+          ...result!,
+          winner: gameEnd.winner,
+          winnerReason: gameEnd.winnerReason,
+          player1: gameEnd.player1,
+          player2: gameEnd.player2,
+        };
 
-      setPhase("finished");
+        setResult(finalResult);
+        setPhase("finished");
+
+        // Generate end summary with TTS
+        await generateEndSummary(finalResult);
+      } else {
+        setPhase("finished");
+      }
     } catch (error) {
       console.error("Error playing game:", error);
       alert("An error occurred while playing the game. Please try again.");
@@ -355,6 +423,8 @@ export default function GuessWhoPage() {
     setShowPlayer2Turns(true);
     setPlayer1Eliminated(new Set());
     setPlayer2Eliminated(new Set());
+    setCurrentCommentary("");
+    setIsPlayingAudio(false);
   };
 
   const renderSetup = () => (
@@ -881,6 +951,27 @@ export default function GuessWhoPage() {
               </div>
               <div className="text-sm text-gray-400 mt-2">{winnerReason}</div>
             </div>
+
+            {/* Commentary Section */}
+            {currentCommentary && (
+              <div className="mb-6">
+                <div className="bg-black/40 border border-gray-800 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="text-2xl">
+                      {isPlayingAudio ? "🔊" : "💬"}
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                        {isPlayingAudio ? "Playing Commentary..." : "Game Summary"}
+                      </div>
+                      <div className="text-white text-sm leading-relaxed">
+                        {currentCommentary}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Results Summary */}
             <div className="grid grid-cols-3 gap-6 max-w-xl mx-auto mb-6">

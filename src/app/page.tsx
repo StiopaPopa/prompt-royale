@@ -239,6 +239,31 @@ export default function Home() {
                 </div>
               </div>
             </Link>
+
+            {/* Battleship Tile */}
+            <Link href="/games/battleship" className="group">
+              <div className="bg-[#111111] rounded-lg border border-gray-800/50 hover:border-gray-700 transition-all duration-200 overflow-hidden">
+                <div className="aspect-video bg-gradient-to-br from-blue-900/20 to-slate-900/20 flex items-center justify-center">
+                  <span className="text-6xl">🚢</span>
+                </div>
+                <div className="p-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="px-2 py-1 text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded">
+                      Strategy
+                    </span>
+                    <span className="px-2 py-1 text-xs font-medium bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded">
+                      Medium
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors">
+                    Battleship
+                  </h3>
+                  <p className="text-sm text-gray-400 leading-relaxed">
+                    Strategically place ships and sink your opponent&apos;s fleet!
+                  </p>
+                </div>
+              </div>
+            </Link>
           </div>
         </div>
       </main>

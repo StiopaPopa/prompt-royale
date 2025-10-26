@@ -63,6 +63,70 @@ export default function BattleshipPage() {
     player: 1 | 2;
     coordinate: Coordinate;
   } | null>(null);
+  const [currentCommentary, setCurrentCommentary] = useState<string>("");
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+  const generateEndSummary = async (result: GameResult): Promise<void> => {
+    return new Promise(async (resolve) => {
+      try {
+        // Calculate ships sunk for each player
+        const player1ShipsSunk = 3 - result.player2.shipsRemaining;
+        const player2ShipsSunk = 3 - result.player1.shipsRemaining;
+
+        // Step 1: Generate end summary text from API
+        const summaryResponse = await fetch("/api/battleship-end-summary", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            winner: result.winner,
+            winnerReason: result.winnerReason,
+            player1Policy: result.player1Policy,
+            player2Policy: result.player2Policy,
+            player1ShotsHit: result.player1.shotsHit,
+            player2ShotsHit: result.player2.shotsHit,
+            player1ShipsSunk: player1ShipsSunk,
+            player2ShipsSunk: player2ShipsSunk,
+          }),
+        });
+
+        const { summary } = await summaryResponse.json();
+        setCurrentCommentary(summary);
+
+        // Step 2: Convert summary text to audio via TTS
+        const ttsResponse = await fetch("/api/text-to-speech", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ text: summary }),
+        });
+
+        const audioBlob = await ttsResponse.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        // Step 3: Play audio and wait for completion
+        setIsPlayingAudio(true);
+        audio.onended = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        audio.onerror = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        await audio.play();
+      } catch (error) {
+        console.error("Error generating end summary:", error);
+        setIsPlayingAudio(false);
+        resolve();
+      }
+    });
+  };
 
   const handleStartGame = async () => {
     if (!player1Policy.trim() || !player2Policy.trim()) {
@@ -206,9 +270,13 @@ export default function BattleshipPage() {
 
       if (gameResult) {
         setResult(gameResult);
-      }
+        setPhase("finished");
 
-      setPhase("finished");
+        // Generate end summary with TTS
+        await generateEndSummary(gameResult);
+      } else {
+        setPhase("finished");
+      }
     } catch (error) {
       console.error("Error playing game:", error);
       alert("An error occurred while playing the game. Please try again.");
@@ -222,6 +290,8 @@ export default function BattleshipPage() {
     setPlayer2Policy("");
     setResult(null);
     setCurrentRound(0);
+    setCurrentCommentary("");
+    setIsPlayingAudio(false);
     setLastShipPlaced(null);
     setLastShot(null);
   };
@@ -784,6 +854,27 @@ export default function BattleshipPage() {
             </div>
             <div className="text-sm text-gray-400 mt-2">{winnerReason}</div>
           </div>
+
+          {/* Commentary Section */}
+          {currentCommentary && (
+            <div className="mb-6">
+              <div className="bg-black/40 border border-gray-800 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <div className="text-2xl">
+                    {isPlayingAudio ? "🔊" : "💬"}
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                      {isPlayingAudio ? "Playing Commentary..." : "Game Summary"}
+                    </div>
+                    <div className="text-white text-sm leading-relaxed">
+                      {currentCommentary}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Final Stats */}
           <div className="grid grid-cols-3 gap-6 max-w-2xl mx-auto mb-6">

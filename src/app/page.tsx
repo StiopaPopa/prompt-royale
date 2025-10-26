@@ -35,18 +35,24 @@ export default function Home() {
                 prompt-royale
               </Link>
               <div className="hidden md:flex items-center gap-6 text-sm">
-                <Link
-                  href="/"
-                  className="text-gray-400 hover:text-white transition-colors"
+                <a
+                  href="#games"
+                  className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document
+                      .getElementById("games")
+                      ?.scrollIntoView({ behavior: "smooth" });
+                  }}
                 >
                   Games
-                </Link>
-                <Link
-                  href="/"
-                  className="text-gray-400 hover:text-white transition-colors"
+                </a>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="text-gray-400 hover:text-white transition-colors cursor-pointer"
                 >
                   Leaderboard
-                </Link>
+                </button>
               </div>
             </div>
           </div>
@@ -132,7 +138,7 @@ export default function Home() {
         </div>
 
         {/* Games Section */}
-        <div className="mb-8">
+        <div id="games" className="mb-8">
           <h2 className="text-2xl font-semibold text-white mb-6">Games</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

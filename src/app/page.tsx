@@ -1,6 +1,29 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
+
+// Full leaderboard data
+const leaderboardData = [
+  { rank: 1, username: "Melwin", points: 42 },
+  { rank: 2, username: "Ryan", points: 35 },
+  { rank: 3, username: "Ziyad", points: 28 },
+  { rank: 4, username: "Hemal", points: 21 },
+  { rank: 5, username: "Rishi", points: 15 },
+  { rank: 6, username: "Aisha", points: 12 },
+  { rank: 7, username: "Kenji", points: 8 },
+  { rank: 8, username: "Sofia", points: 5 },
+  { rank: 9, username: "Dmitri", points: 2 },
+  { rank: 10, username: "Fatima", points: 0 },
+  { rank: 11, username: "Carlos", points: -3 },
+  { rank: 12, username: "Priya", points: -7 },
+  { rank: 13, username: "Jamal", points: -11 },
+  { rank: 14, username: "Elena", points: -15 },
+  { rank: 15, username: "Kwame", points: -19 },
+];
 
 export default function Home() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       {/* Navigation */}
@@ -70,50 +93,40 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800/30">
-                  <tr className="hover:bg-gray-800/20 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-300">
-                      1
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                      alex_prompter
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-green-400 text-right">
-                      +127
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-gray-800/20 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-300">
-                      2
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                      prompt_master
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-green-400 text-right">
-                      +98
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-gray-800/20 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-300">
-                      3
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                      game_ai_expert
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-green-400 text-right">
-                      +84
-                    </td>
-                  </tr>
+                  {leaderboardData.slice(0, 5).map((player) => (
+                    <tr
+                      key={player.rank}
+                      className="hover:bg-gray-800/20 transition-colors"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-300">
+                        {player.rank}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                        {player.username}
+                      </td>
+                      <td
+                        className={`px-6 py-4 whitespace-nowrap text-sm font-mono text-right ${
+                          player.points >= 0
+                            ? "text-green-400"
+                            : "text-red-400"
+                        }`}
+                      >
+                        {player.points >= 0 ? "+" : ""}
+                        {player.points}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
 
             <div className="px-6 py-3 border-t border-gray-800/50 text-center">
-              <Link
-                href="/"
-                className="text-sm text-gray-400 hover:text-white transition-colors"
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="text-sm text-gray-400 hover:text-white transition-colors cursor-pointer"
               >
                 View full leaderboard →
-              </Link>
+              </button>
             </div>
           </div>
         </div>
@@ -302,6 +315,74 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      {/* Leaderboard Modal */}
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={() => setIsModalOpen(false)}
+        >
+          <div
+            className="bg-[#111111] rounded-lg border border-gray-800/50 max-w-2xl w-full max-h-[80vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-gray-800/50 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">
+                Full Leaderboard
+              </h3>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-gray-400 hover:text-white transition-colors text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="overflow-y-auto max-h-[calc(80vh-80px)]">
+              <table className="w-full">
+                <thead className="sticky top-0 bg-[#111111]">
+                  <tr className="border-b border-gray-800/50">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Rank
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Username
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Wins
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800/30">
+                  {leaderboardData.map((player) => (
+                    <tr
+                      key={player.rank}
+                      className="hover:bg-gray-800/20 transition-colors"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-300">
+                        {player.rank}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                        {player.username}
+                      </td>
+                      <td
+                        className={`px-6 py-4 whitespace-nowrap text-sm font-mono text-right ${
+                          player.points >= 0
+                            ? "text-green-400"
+                            : "text-red-400"
+                        }`}
+                      >
+                        {player.points >= 0 ? "+" : ""}
+                        {player.points}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -39,6 +39,62 @@ export default function ImageSimilarityPage() {
     const [judgeModel, setJudgeModel] = useState<string | null>(null);
     const [reasoning, setReasoning] = useState<string | null>(null);
     const [statusText, setStatusText] = useState<string | null>(null);
+    const [commentaryEnabled, setCommentaryEnabled] = useState(true);
+    const [currentCommentary, setCurrentCommentary] = useState<string>("");
+    const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+    // Function to generate and play end-of-game summary
+    const generateEndSummary = async (winner: 'player1' | 'player2' | 'tie', p1Score: number, p2Score: number, reasoning: string): Promise<void> => {
+        if (!commentaryEnabled) return;
+
+        return new Promise(async (resolve) => {
+            try {
+                // Generate end summary text
+                const summaryResponse = await fetch("/api/image-end-summary", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        winner,
+                        player1Score: p1Score,
+                        player2Score: p2Score,
+                        reasoning,
+                    }),
+                });
+
+                const { summary } = await summaryResponse.json();
+                setCurrentCommentary(summary);
+
+                // Generate TTS audio
+                const ttsResponse = await fetch("/api/text-to-speech", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text: summary }),
+                });
+
+                const audioBlob = await ttsResponse.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = new Audio(audioUrl);
+
+                // Play audio and wait for it to finish
+                setIsPlayingAudio(true);
+                audio.onended = () => {
+                    setIsPlayingAudio(false);
+                    URL.revokeObjectURL(audioUrl);
+                    resolve();
+                };
+                audio.onerror = () => {
+                    setIsPlayingAudio(false);
+                    URL.revokeObjectURL(audioUrl);
+                    resolve();
+                };
+                await audio.play();
+            } catch (error) {
+                console.error("Error generating end summary:", error);
+                setIsPlayingAudio(false);
+                resolve();
+            }
+        });
+    };
 
     const compareImages = async () => {
         if (!referenceImage || !p1Prompt.trim() || !p2Prompt.trim()) {
@@ -86,6 +142,9 @@ export default function ImageSimilarityPage() {
             setWinner(judged.winner);
             setJudgeModel(judged.judgeModel ?? 'gemini-2.5-flash');
             setReasoning(judged.reasoning ?? null);
+
+            // Generate and play end-of-game summary
+            await generateEndSummary(judged.winner, judged.player1Score, judged.player2Score, judged.reasoning ?? '');
         } catch (e) {
             console.error(e);
             setError('Failed to generate images. Ensure the required API is available.');
@@ -328,6 +387,32 @@ export default function ImageSimilarityPage() {
                                         winner === 'tie' ? 'text-yellow-400' : winner === 'player1' ? 'text-blue-400' : 'text-red-400'
                                     }`}>
                                         {winner === 'tie' ? 'It\'s a Tie' : (winner === 'player1' ? 'Player 1 Wins' : 'Player 2 Wins')}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Commentary Display */}
+                            {commentaryEnabled && currentCommentary && (
+                                <div className="bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/30 rounded-lg p-4">
+                                    <div className="flex items-start gap-3">
+                                        <div className="flex-shrink-0">
+                                            <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                                                <span className="text-xl">🎙️</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className="text-purple-400 font-medium text-sm">Commentator's Take</span>
+                                                {isPlayingAudio && (
+                                                    <div className="flex gap-1">
+                                                        <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse"></div>
+                                                        <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: "150ms"}}></div>
+                                                        <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: "300ms"}}></div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <p className="text-gray-300 text-sm leading-relaxed">{currentCommentary}</p>
+                                        </div>
                                     </div>
                                 </div>
                             )}

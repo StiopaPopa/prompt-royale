@@ -29,13 +29,15 @@ export default function GameWrapper({ children }: GameWrapperProps) {
     );
   }
 
-  return (
-    <>
-      {children}
-      <LoginPromptModal
-        isOpen={showLoginModal}
-        onClose={() => setShowLoginModal(false)}
-      />
-    </>
-  );
+  // If unauthenticated, show only the login modal without game content
+  if (status === "unauthenticated") {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] text-white">
+        <LoginPromptModal isOpen={showLoginModal} />
+      </div>
+    );
+  }
+
+  // Only render game content if authenticated
+  return <>{children}</>;
 }

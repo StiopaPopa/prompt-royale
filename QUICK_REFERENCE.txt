@@ -1,0 +1,92 @@
+┌─────────────────────────────────────────────────────────────┐
+│  🎨 IMAGE SIMILARITY GAME - QUICK REFERENCE                 │
+└─────────────────────────────────────────────────────────────┘
+
+📍 GAME LOCATION
+   http://localhost:3000 → Click "Image Similarity" tile
+
+🎮 HOW TO PLAY
+   1. Select a reference image (🏠 🐱 🌳 😊 ☀️)
+   2. Draw it on the canvas
+   3. Click "Submit Drawing"
+   4. Get your score (1-10)!
+
+⚙️ TWO MODES
+
+   Simple Mode (Default - No Setup Required)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   $ npm run dev
+   
+   Works immediately with simplified scoring.
+
+   Full Mode (Python Backend - More Accurate)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Terminal 1:
+   $ cd python-backend
+   $ ./setup.sh
+   $ source venv/bin/activate
+   $ python server.py
+   
+   Terminal 2:
+   $ echo "PYTHON_BACKEND_URL=http://localhost:5000" >> .env.local
+   $ npm run dev
+
+🔍 SCORING ALGORITHMS (Full Mode)
+   ✓ Structural Similarity (30%)
+   ✓ Histogram Comparison (20%)
+   ✓ Feature Matching (20%)
+   ✓ Color Similarity (15%)
+   ✓ Edge Similarity (15%)
+
+📁 KEY FILES
+   Frontend:
+   ├── src/app/page.tsx (game button)
+   ├── src/app/games/image-similarity/page.tsx (game UI)
+   └── src/app/api/image-similarity/route.ts (API)
+   
+   Backend:
+   ├── python-backend/server.py (Flask API)
+   ├── python-backend/image_similarity.py (scoring logic)
+   └── python-backend/requirements.txt (dependencies)
+
+🧪 TESTING
+   $ cd python-backend
+   $ python test_backend.py
+
+📚 DOCUMENTATION
+   • IMAGE_SIMILARITY_README.md - Full guide
+   • IMPLEMENTATION_SUMMARY.md - Technical overview
+   • python-backend/README.md - Backend docs
+
+🎯 SCORE MEANINGS
+   9.0-10.0 → Amazing! Nearly perfect! 🏆
+   8.0-8.9  → Excellent work! ⭐
+   6.0-7.9  → Good job! 👍
+   4.0-5.9  → Not bad, keep practicing! 💪
+   1.0-3.9  → Keep trying! 🎨
+
+💡 TIPS
+   • Use different brush sizes for details
+   • Try different colors to match prompts
+   • Clear and redraw if needed
+   • Practice makes perfect!
+
+🔧 TROUBLESHOOTING
+   Issue: Can't connect to Python backend
+   → Check server is running: python server.py
+   → Verify .env.local has PYTHON_BACKEND_URL
+   
+   Issue: Low scores for good drawings
+   → Make sure Python backend is configured
+   → Simple mode uses basic heuristics
+
+🚀 FUTURE IDEAS
+   • Real reference images
+   • Multiplayer mode
+   • LLM-generated prompts
+   • Time challenges
+   • Leaderboards
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Ready to draw! Have fun! 🎨
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

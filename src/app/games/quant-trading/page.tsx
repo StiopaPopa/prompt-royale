@@ -861,20 +861,25 @@ export default function QuantTradingPage() {
 
             {/* Commentary Section */}
             {currentCommentary && (
-              <div className="mb-6">
-                <div className="bg-black/40 border border-gray-800 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="text-2xl">
-                      {isPlayingAudio ? "🔊" : "💬"}
+              <div className="mb-6 bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/30 rounded-lg p-6">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                      <span className="text-xl">🎙️</span>
                     </div>
-                    <div>
-                      <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                        {isPlayingAudio ? "Playing Commentary..." : "Game Summary"}
-                      </div>
-                      <div className="text-white text-sm leading-relaxed">
-                        {currentCommentary}
-                      </div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-purple-400 font-medium text-sm">Commentator's Take</span>
+                      {isPlayingAudio && (
+                        <div className="flex gap-1">
+                          <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse"></div>
+                          <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: "150ms"}}></div>
+                          <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: "300ms"}}></div>
+                        </div>
+                      )}
                     </div>
+                    <p className="text-gray-300 text-sm leading-relaxed">{currentCommentary}</p>
                   </div>
                 </div>
               </div>

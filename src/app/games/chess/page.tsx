@@ -408,16 +408,17 @@ export default function ChessPage() {
         };
         setGameResult(finalResult);
 
-        // Generate and play end-of-game summary (with error handling)
-        try {
-          await generateEndSummary(finalResult);
-        } catch (summaryError) {
+        // Show the results immediately
+        setGameState("finished");
+
+        // Generate and play end-of-game summary in the background (don't await)
+        generateEndSummary(finalResult).catch((summaryError) => {
           console.error("Error generating end summary:", summaryError);
           // Continue anyway - don't block the game from finishing
-        }
+        });
+      } else {
+        setGameState("finished");
       }
-
-      setGameState("finished");
     } catch (err) {
       console.error("Error in chess game:", err);
       setError("Failed to play chess game. Please try again.");

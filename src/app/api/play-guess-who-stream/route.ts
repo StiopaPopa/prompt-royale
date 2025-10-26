@@ -1,9 +1,12 @@
 import { NextRequest } from "next/server";
 import OpenAI from "openai";
 
+// Lava integration: Use Lava proxy if token is set, otherwise fallback to direct OpenAI
+const useLava = !!process.env.LAVA_FORWARD_TOKEN;
+
 const openai = new OpenAI({
-  apiKey:
-    "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",
+  apiKey: useLava ? process.env.LAVA_FORWARD_TOKEN : process.env.OPENAI_API_KEY,
+  baseURL: useLava ? "https://api.lavapayments.com/v1/forward/openai/v1" : undefined,
 });
 
 interface QuestionTurn {
@@ -226,8 +229,8 @@ class Player {
       const historyText =
         this.turns.length > 0
           ? this.turns
-              .map((t, i) => `Q${i + 1}: ${t.question}\nA${i + 1}: ${t.answer}`)
-              .join("\n")
+            .map((t, i) => `Q${i + 1}: ${t.question}\nA${i + 1}: ${t.answer}`)
+            .join("\n")
           : "No questions asked yet";
 
       const response = await openai.chat.completions.create({
@@ -235,9 +238,8 @@ class Player {
         messages: [
           {
             role: "system",
-            content: `You are Player ${
-              this.playerId
-            } playing Guess Who. Your strategy is:
+            content: `You are Player ${this.playerId
+              } playing Guess Who. Your strategy is:
 
 ${this.policy}
 
@@ -266,15 +268,13 @@ The celebrity pool includes people from diverse fields: music, sports, technolog
             role: "user",
             content: `Based on your strategy and the previous answers, what should you do next?
 
-REMAINING PEOPLE: ${this.remainingPeople.join(", ")} (${
-              this.remainingPeople.length
-            } total)
+REMAINING PEOPLE: ${this.remainingPeople.join(", ")} (${this.remainingPeople.length
+              } total)
 
-${
-  this.remainingPeople.length === 1
-    ? `Note: Only one person remains uneliminated.`
-    : ""
-}
+${this.remainingPeople.length === 1
+                ? `Note: Only one person remains uneliminated.`
+                : ""
+              }
 
 Follow YOUR STRATEGY to decide whether to:
 - Ask a yes/no question to eliminate more people, OR
@@ -355,13 +355,11 @@ REASONING: [brief 1-2 sentence explanation of why you're taking this approach ba
         console.log(`[Player ${this.playerId}] Question: "${question}"`);
         console.log(`[Player ${this.playerId}] Answer: "${answer}"`);
         console.log(
-          `[Player ${this.playerId}] ELIMINATING ${
-            toEliminate.length
+          `[Player ${this.playerId}] ELIMINATING ${toEliminate.length
           } males: ${toEliminate.join(", ")}`
         );
         console.log(
-          `[Player ${this.playerId}] ${
-            this.remainingPeople.length
+          `[Player ${this.playerId}] ${this.remainingPeople.length
           } remaining: ${this.remainingPeople.join(", ")}`
         );
 
@@ -378,13 +376,11 @@ REASONING: [brief 1-2 sentence explanation of why you're taking this approach ba
         console.log(`[Player ${this.playerId}] Question: "${question}"`);
         console.log(`[Player ${this.playerId}] Answer: "${answer}"`);
         console.log(
-          `[Player ${this.playerId}] ELIMINATING ${
-            toEliminate.length
+          `[Player ${this.playerId}] ELIMINATING ${toEliminate.length
           } females: ${toEliminate.join(", ")}`
         );
         console.log(
-          `[Player ${this.playerId}] ${
-            this.remainingPeople.length
+          `[Player ${this.playerId}] ${this.remainingPeople.length
           } remaining: ${this.remainingPeople.join(", ")}`
         );
 
@@ -442,11 +438,11 @@ REASONING: [brief 1-2 sentence explanation of why you're taking this approach ba
         const isPositiveAnswer = answer.toLowerCase() === "yes";
         const shouldEliminateField = isPositiveAnswer
           ? this.remainingPeople.filter(
-              (person) => !CELEBRITY_FIELDS[person]?.includes(field)
-            )
+            (person) => !CELEBRITY_FIELDS[person]?.includes(field)
+          )
           : this.remainingPeople.filter((person) =>
-              CELEBRITY_FIELDS[person]?.includes(field)
-            );
+            CELEBRITY_FIELDS[person]?.includes(field)
+          );
 
         this.remainingPeople = this.remainingPeople.filter((person) =>
           isPositiveAnswer
@@ -457,13 +453,11 @@ REASONING: [brief 1-2 sentence explanation of why you're taking this approach ba
         console.log(`[Player ${this.playerId}] Question: "${question}"`);
         console.log(`[Player ${this.playerId}] Answer: "${answer}"`);
         console.log(
-          `[Player ${this.playerId}] ELIMINATING ${
-            shouldEliminateField.length
+          `[Player ${this.playerId}] ELIMINATING ${shouldEliminateField.length
           } people from ${field} field: ${shouldEliminateField.join(", ")}`
         );
         console.log(
-          `[Player ${this.playerId}] ${
-            this.remainingPeople.length
+          `[Player ${this.playerId}] ${this.remainingPeople.length
           } remaining: ${this.remainingPeople.join(", ")}`
         );
 
@@ -576,14 +570,12 @@ If no one should be eliminated, use: {"eliminated": [], "reasoning": "This quest
       console.log(`[Player ${this.playerId}] Question: "${question}"`);
       console.log(`[Player ${this.playerId}] Answer: "${answer}"`);
       console.log(
-        `[Player ${
-          this.playerId
+        `[Player ${this.playerId
         }] ELIMINATING ${eliminated} people: ${toEliminate.join(", ")}`
       );
       console.log(`[Player ${this.playerId}] Reasoning: ${parsed.reasoning}`);
       console.log(
-        `[Player ${this.playerId}] ${
-          this.remainingPeople.length
+        `[Player ${this.playerId}] ${this.remainingPeople.length
         } remaining: ${this.remainingPeople.join(", ")}`
       );
 
@@ -1025,9 +1017,8 @@ export async function POST(request: NextRequest) {
             } else {
               // Both guessed incorrectly (shouldn't happen with current logic, but just in case)
               winner = "tie";
-              winnerReason = `Both players guessed incorrectly. Player 1: "${
-                result1.finalGuess || "no guess"
-              }", Player 2: "${result2.finalGuess || "no guess"}"`;
+              winnerReason = `Both players guessed incorrectly. Player 1: "${result1.finalGuess || "no guess"
+                }", Player 2: "${result2.finalGuess || "no guess"}"`;
             }
           }
         }

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project now integrates **Lava Payments** as an AI gateway for the Image Similarity game. Lava acts as a transparent proxy that routes requests to Google Gemini while providing:
+This project now integrates **Lava Payments** as an AI gateway for all games. Lava acts as a transparent proxy that routes requests to Google Gemini and OpenAI while providing:
 
 - ✅ Automatic usage tracking and cost monitoring
 - ✅ Centralized billing across multiple AI providers
@@ -12,11 +12,25 @@ This project now integrates **Lava Payments** as an AI gateway for the Image Sim
 ## Architecture
 
 ```
-Your App → Lava Proxy → Google Gemini API
-         (tracks usage)  (image generation & judging)
+Your App → Lava Proxy → OpenAI / Google Gemini API
+         (tracks usage)  (game logic & image generation)
 ```
 
-Lava sits between your application and Gemini, forwarding requests transparently while metering API calls and charging your Lava wallet.
+Lava sits between your application and the AI providers, forwarding requests transparently while metering API calls and charging your Lava wallet.
+
+## Integrated Games
+
+### Using OpenAI (via Lava)
+- **Rock Paper Scissors** - GPT-4o-mini for strategy
+- **20 Questions** - GPT-4o for question answering
+- **Battleship** - GPT-4o for shot selection
+- **Chess** - GPT-4o for move planning
+- **Guess Who** - GPT-4o for deduction
+- **Quant Trading** - GPT-4o-mini for trading decisions
+- **End Summaries** - GPT-4o-mini for commentary
+
+### Using Gemini (via Lava)
+- **Image Similarity** - Gemini 2.0 Flash for image generation, Gemini 2.5 Flash for judging
 
 ## Setup Instructions
 
@@ -40,8 +54,9 @@ LAVA_BASE_URL=https://api.lavapayments.com/v1
 GEMINI_IMAGE_GENERATION_URL=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent
 GEMINI_JUDGE_URL=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
 
-# Legacy fallback (if not using Lava)
+# Legacy fallback keys (if not using Lava)
 GEMINI_API_KEY=your_gemini_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 **Important:** Add `.env.local` to your `.gitignore` to keep tokens secure!

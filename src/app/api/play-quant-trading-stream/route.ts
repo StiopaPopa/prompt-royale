@@ -1,9 +1,12 @@
 import { NextRequest } from "next/server";
 import OpenAI from "openai";
 
+// Lava integration: Use Lava proxy if token is set, otherwise fallback to direct OpenAI
+const useLava = !!process.env.LAVA_FORWARD_TOKEN;
+
 const openai = new OpenAI({
-  apiKey:
-    "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",
+  apiKey: useLava ? process.env.LAVA_FORWARD_TOKEN : process.env.OPENAI_API_KEY,
+  baseURL: useLava ? "https://api.lavapayments.com/v1/forward/openai/v1" : undefined,
 });
 
 // Track last used dataset to ensure variety
@@ -802,9 +805,9 @@ ${this.strategy}
 
 PRICE HISTORY (last 10 periods):
 ${priceHistory
-  .slice(-10)
-  .map((p) => `${p.date}: $${p.price.toFixed(2)}`)
-  .join("\n")}
+                .slice(-10)
+                .map((p) => `${p.date}: $${p.price.toFixed(2)}`)
+                .join("\n")}
 
 IMPORTANT RULES:
 1. You MUST follow your assigned strategy above - do not deviate from it
@@ -890,9 +893,8 @@ Reasoning must explain how this decision follows your assigned strategy`,
         parsed = {
           action: "pass",
           units: 0,
-          reasoning: `Parse error: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`,
+          reasoning: `Parse error: ${error instanceof Error ? error.message : "Unknown error"
+            }`,
         };
       }
 

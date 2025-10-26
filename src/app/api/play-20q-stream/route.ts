@@ -1,9 +1,12 @@
 import { NextRequest } from "next/server";
 import OpenAI from "openai";
 
+// Lava integration: Use Lava proxy if token is set, otherwise fallback to direct OpenAI
+const useLava = !!process.env.LAVA_FORWARD_TOKEN;
+
 const openai = new OpenAI({
-  apiKey:
-    "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",
+  apiKey: useLava ? process.env.LAVA_FORWARD_TOKEN : process.env.OPENAI_API_KEY,
+  baseURL: useLava ? "https://api.lavapayments.com/v1/forward/openai/v1" : undefined,
 });
 
 interface QuestionTurn {
@@ -209,11 +212,11 @@ class Player {
       const historyText =
         this.turns.length > 0
           ? this.turns
-              .map(
-                (t, i) =>
-                  `Q${i + 1}: ${t.question}\nA${i + 1}: ${t.answer}${t.hint ? `\nHint: ${t.hint}` : ""}`
-              )
-              .join("\n")
+            .map(
+              (t, i) =>
+                `Q${i + 1}: ${t.question}\nA${i + 1}: ${t.answer}${t.hint ? `\nHint: ${t.hint}` : ""}`
+            )
+            .join("\n")
           : "No questions asked yet";
 
       const isFinalQuestion = questionNumber === maxQuestions;
@@ -235,21 +238,19 @@ Rules:
 - Use your strategy to narrow down the object
 - You can make a direct identity guess (e.g., "Is it a banana?")
 - Be strategic and logical
-- This is question ${questionNumber} of ${maxQuestions}${
-              isFinalQuestion
+- This is question ${questionNumber} of ${maxQuestions}${isFinalQuestion
                 ? "\n- ⚠️ THIS IS YOUR FINAL QUESTION - You MUST make a direct identity guess now (e.g., 'Is it a [specific object]?')"
                 : ""
-            }`,
+              }`,
           },
           {
             role: "user",
-            content: `${
-              isFinalQuestion
+            content: `${isFinalQuestion
                 ? `This is your FINAL question (#${maxQuestions}). You MUST make a direct identity guess based on all the information you've gathered.
 
 Based on all the answers so far, what do you think the object is? Make your final guess in the format "Is it a [object]?"`
                 : `Based on your strategy and the previous answers, what is your next question?`
-            }
+              }
 
 Respond in this format:
 QUESTION: [your question${isFinalQuestion ? " - must be a direct guess like 'Is it a banana?'" : ""}]
@@ -370,7 +371,7 @@ function matchesSecret(guessedObject: string, secretObject: string): boolean {
 
   // Exact match
   if (normalizedGuess === normalizedSecret) return true;
-  
+
   // Simple plural/singular variations
   if (normalizedGuess + "s" === normalizedSecret) return true;
   if (normalizedGuess === normalizedSecret + "s") return true;
@@ -490,14 +491,14 @@ export async function POST(request: NextRequest) {
               )
             );
 
-              // Check if it was a correct identity guess
-              // Simple logic: extract what they guessed and see if it matches the secret
-              const guessedObject = extractGuessedObject(question);
-              if (guessedObject && matchesSecret(guessedObject, secretObject)) {
-                correct = true;
-                console.log(`Player ${playerId} guessed correctly on question ${i}!`);
-                break;
-              }
+            // Check if it was a correct identity guess
+            // Simple logic: extract what they guessed and see if it matches the secret
+            const guessedObject = extractGuessedObject(question);
+            if (guessedObject && matchesSecret(guessedObject, secretObject)) {
+              correct = true;
+              console.log(`Player ${playerId} guessed correctly on question ${i}!`);
+              break;
+            }
           }
 
           return {

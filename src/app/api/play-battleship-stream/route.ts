@@ -1,9 +1,12 @@
 import { NextRequest } from "next/server";
 import OpenAI from "openai";
 
+// Lava integration: Use Lava proxy if token is set, otherwise fallback to direct OpenAI
+const useLava = !!process.env.LAVA_FORWARD_TOKEN;
+
 const openai = new OpenAI({
-  apiKey:
-    "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",
+  apiKey: useLava ? process.env.LAVA_FORWARD_TOKEN : process.env.OPENAI_API_KEY,
+  baseURL: useLava ? "https://api.lavapayments.com/v1/forward/openai/v1" : undefined,
 });
 
 type Coordinate = { row: string; col: number };
@@ -270,10 +273,10 @@ async function getNextShot(
   const misses = turns
     .filter((t) => t.result === "miss")
     .map((t) => coordinateToString(t.coordinate));
-  
+
   // Sunk ships info
   const sunkShips = turns.filter((t) => t.result === "sunk");
-  const sunkShipsInfo = sunkShips.length > 0 
+  const sunkShipsInfo = sunkShips.length > 0
     ? sunkShips.map((t) => `Length ${t.sunkShipLength} at ${coordinateToString(t.coordinate)}`).join(", ")
     : "none yet";
 

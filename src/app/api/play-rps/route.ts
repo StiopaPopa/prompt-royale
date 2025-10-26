@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
+// Lava integration: Use Lava proxy if token is set, otherwise fallback to direct OpenAI
+const useLava = !!process.env.LAVA_FORWARD_TOKEN;
+
 const openai = new OpenAI({
-  apiKey:
-    "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",
+  apiKey: useLava ? process.env.LAVA_FORWARD_TOKEN : process.env.OPENAI_API_KEY,
+  baseURL: useLava ? "https://api.lavapayments.com/v1/forward/openai/v1" : undefined,
 });
 
 type Move = "rock" | "paper" | "scissors";
@@ -53,19 +56,19 @@ async function getMove(
     const historyText =
       history.length > 0
         ? history
-            .map((r) => {
-              const myMove = playerNumber === 1 ? r.player1Move : r.player2Move;
-              const opponentMove =
-                playerNumber === 1 ? r.player2Move : r.player1Move;
-              const result =
-                r.winner === "tie"
-                  ? "TIE"
-                  : r.winner === `player${playerNumber}`
+          .map((r) => {
+            const myMove = playerNumber === 1 ? r.player1Move : r.player2Move;
+            const opponentMove =
+              playerNumber === 1 ? r.player2Move : r.player1Move;
+            const result =
+              r.winner === "tie"
+                ? "TIE"
+                : r.winner === `player${playerNumber}`
                   ? "WON"
                   : "LOST";
-              return `Round ${r.round}: You played ${myMove}, opponent played ${opponentMove} → ${result}`;
-            })
-            .join("\n")
+            return `Round ${r.round}: You played ${myMove}, opponent played ${opponentMove} → ${result}`;
+          })
+          .join("\n")
         : "No previous rounds";
 
     const systemMessage = `YOU MUST FOLLOW THIS STRATEGY EXACTLY: ${prompt}
@@ -183,8 +186,8 @@ export async function POST(request: NextRequest) {
         player1Wins > player2Wins
           ? "player1"
           : player2Wins > player1Wins
-          ? "player2"
-          : "tie",
+            ? "player2"
+            : "tie",
       player1Prompt,
       player2Prompt,
     });

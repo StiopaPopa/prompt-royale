@@ -2,9 +2,12 @@ import { NextRequest } from "next/server";
 import OpenAI from "openai";
 import { Chess } from "chess.js";
 
+// Lava integration: Use Lava proxy if token is set, otherwise fallback to direct OpenAI
+const useLava = !!process.env.LAVA_FORWARD_TOKEN;
+
 const openai = new OpenAI({
-  apiKey:
-    "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",
+  apiKey: useLava ? process.env.LAVA_FORWARD_TOKEN : process.env.OPENAI_API_KEY,
+  baseURL: useLava ? "https://api.lavapayments.com/v1/forward/openai/v1" : undefined,
 });
 
 // Stockfish evaluation function using online API
@@ -12,12 +15,12 @@ async function evaluatePosition(fen: string): Promise<number> {
   try {
     const depth = 15; // Use depth 15 for good balance of speed and accuracy
     const url = `https://stockfish.online/api/s/v2.php?fen=${encodeURIComponent(fen)}&depth=${depth}`;
-    
+
     console.log(`Calling Stockfish API with FEN: ${fen}`);
-    
+
     const response = await fetch(url);
     const data = await response.json();
-    
+
     if (data.success) {
       // Check if there's a mate score
       if (data.mate !== null) {
@@ -26,7 +29,7 @@ async function evaluatePosition(fen: string): Promise<number> {
         console.log(`Stockfish found mate in ${data.mate}: ${mateValue}`);
         return mateValue;
       }
-      
+
       // Regular evaluation in pawns (convert to centipawns)
       const evaluation = data.evaluation * 100;
       console.log(`Stockfish evaluation: ${data.evaluation} pawns (${evaluation} centipawns)`);
@@ -45,7 +48,7 @@ async function evaluatePosition(fen: string): Promise<number> {
 // Fallback material evaluation (not used, but kept for reference)
 function evaluatePositionMaterial(chess: Chess): number {
   const board = chess.board();
-  
+
   const pieceValues: Record<string, number> = {
     p: 100,  // Pawn
     n: 320,  // Knight
@@ -57,69 +60,69 @@ function evaluatePositionMaterial(chess: Chess): number {
 
   // Positional bonuses for piece placement
   const pawnTable = [
-    0,  0,  0,  0,  0,  0,  0,  0,
+    0, 0, 0, 0, 0, 0, 0, 0,
     50, 50, 50, 50, 50, 50, 50, 50,
     10, 10, 20, 30, 30, 20, 10, 10,
-    5,  5, 10, 25, 25, 10,  5,  5,
-    0,  0,  0, 20, 20,  0,  0,  0,
-    5, -5,-10,  0,  0,-10, -5,  5,
-    5, 10, 10,-20,-20, 10, 10,  5,
-    0,  0,  0,  0,  0,  0,  0,  0
+    5, 5, 10, 25, 25, 10, 5, 5,
+    0, 0, 0, 20, 20, 0, 0, 0,
+    5, -5, -10, 0, 0, -10, -5, 5,
+    5, 10, 10, -20, -20, 10, 10, 5,
+    0, 0, 0, 0, 0, 0, 0, 0
   ];
 
   const knightTable = [
-    -50,-40,-30,-30,-30,-30,-40,-50,
-    -40,-20,  0,  0,  0,  0,-20,-40,
-    -30,  0, 10, 15, 15, 10,  0,-30,
-    -30,  5, 15, 20, 20, 15,  5,-30,
-    -30,  0, 15, 20, 20, 15,  0,-30,
-    -30,  5, 10, 15, 15, 10,  5,-30,
-    -40,-20,  0,  5,  5,  0,-20,-40,
-    -50,-40,-30,-30,-30,-30,-40,-50
+    -50, -40, -30, -30, -30, -30, -40, -50,
+    -40, -20, 0, 0, 0, 0, -20, -40,
+    -30, 0, 10, 15, 15, 10, 0, -30,
+    -30, 5, 15, 20, 20, 15, 5, -30,
+    -30, 0, 15, 20, 20, 15, 0, -30,
+    -30, 5, 10, 15, 15, 10, 5, -30,
+    -40, -20, 0, 5, 5, 0, -20, -40,
+    -50, -40, -30, -30, -30, -30, -40, -50
   ];
 
   const bishopTable = [
-    -20,-10,-10,-10,-10,-10,-10,-20,
-    -10,  0,  0,  0,  0,  0,  0,-10,
-    -10,  0,  5, 10, 10,  5,  0,-10,
-    -10,  5,  5, 10, 10,  5,  5,-10,
-    -10,  0, 10, 10, 10, 10,  0,-10,
-    -10, 10, 10, 10, 10, 10, 10,-10,
-    -10,  5,  0,  0,  0,  0,  5,-10,
-    -20,-10,-10,-10,-10,-10,-10,-20
+    -20, -10, -10, -10, -10, -10, -10, -20,
+    -10, 0, 0, 0, 0, 0, 0, -10,
+    -10, 0, 5, 10, 10, 5, 0, -10,
+    -10, 5, 5, 10, 10, 5, 5, -10,
+    -10, 0, 10, 10, 10, 10, 0, -10,
+    -10, 10, 10, 10, 10, 10, 10, -10,
+    -10, 5, 0, 0, 0, 0, 5, -10,
+    -20, -10, -10, -10, -10, -10, -10, -20
   ];
 
   const rookTable = [
-    0,  0,  0,  0,  0,  0,  0,  0,
-    5, 10, 10, 10, 10, 10, 10,  5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    0,  0,  0,  5,  5,  0,  0,  0
+    0, 0, 0, 0, 0, 0, 0, 0,
+    5, 10, 10, 10, 10, 10, 10, 5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    0, 0, 0, 5, 5, 0, 0, 0
   ];
 
   const queenTable = [
-    -20,-10,-10, -5, -5,-10,-10,-20,
-    -10,  0,  0,  0,  0,  0,  0,-10,
-    -10,  0,  5,  5,  5,  5,  0,-10,
-    -5,  0,  5,  5,  5,  5,  0, -5,
-    0,  0,  5,  5,  5,  5,  0, -5,
-    -10,  5,  5,  5,  5,  5,  0,-10,
-    -10,  0,  5,  0,  0,  0,  0,-10,
-    -20,-10,-10, -5, -5,-10,-10,-20
+    -20, -10, -10, -5, -5, -10, -10, -20,
+    -10, 0, 0, 0, 0, 0, 0, -10,
+    -10, 0, 5, 5, 5, 5, 0, -10,
+    -5, 0, 5, 5, 5, 5, 0, -5,
+    0, 0, 5, 5, 5, 5, 0, -5,
+    -10, 5, 5, 5, 5, 5, 0, -10,
+    -10, 0, 5, 0, 0, 0, 0, -10,
+    -20, -10, -10, -5, -5, -10, -10, -20
   ];
 
   const kingMiddleGameTable = [
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -20,-30,-30,-40,-40,-30,-30,-20,
-    -10,-20,-20,-20,-20,-20,-20,-10,
-    20, 20,  0,  0,  0,  0, 20, 20,
-    20, 30, 10,  0,  0, 10, 30, 20
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -20, -30, -30, -40, -40, -30, -30, -20,
+    -10, -20, -20, -20, -20, -20, -20, -10,
+    20, 20, 0, 0, 0, 0, 20, 20,
+    20, 30, 10, 0, 0, 10, 30, 20
   ];
 
   const tables: Record<string, number[]> = {
@@ -141,11 +144,11 @@ function evaluatePositionMaterial(chess: Chess): number {
         const pieceType = piece.type;
         const isWhite = piece.color === 'w';
         const pieceValue = pieceValues[pieceType];
-        
+
         // Get positional bonus
         const tableIndex = isWhite ? (7 - row) * 8 + col : row * 8 + col;
         const positionBonus = tables[pieceType]?.[tableIndex] || 0;
-        
+
         const totalValue = pieceValue + positionBonus;
         evaluation += isWhite ? totalValue : -totalValue;
       }
@@ -202,12 +205,12 @@ async function getChessMove(
     const recentMoves =
       moveHistory.length > 0
         ? moveHistory
-            .slice(-6)
-            .map(
-              (m) =>
-                `Move ${m.moveNumber}: ${m.player === "white" ? "White" : "Black"} played ${m.san}${m.isCheck ? " (Check!)" : ""}`
-            )
-            .join("\n")
+          .slice(-6)
+          .map(
+            (m) =>
+              `Move ${m.moveNumber}: ${m.player === "white" ? "White" : "Black"} played ${m.san}${m.isCheck ? " (Check!)" : ""}`
+          )
+          .join("\n")
         : "No previous moves - game just started";
 
     const systemMessage = `YOU MUST FOLLOW THIS CHESS STRATEGY: ${prompt}
@@ -426,7 +429,7 @@ export async function POST(request: NextRequest) {
         } else {
           // Game reached move limit - evaluate position
           console.log("Game reached move limit, evaluating position...");
-          
+
           // Send evaluation in progress message
           controller.enqueue(
             encoder.encode(

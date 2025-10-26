@@ -114,7 +114,7 @@ export default function Home() {
         <div className="mb-8">
           <h2 className="text-2xl font-semibold text-white mb-6">Games</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Rock Paper Scissors Tile */}
             <Link href="/games/rock-paper-scissors" className="group">
               <div className="bg-[#111111] rounded-lg border border-gray-800/50 hover:border-gray-700 transition-all duration-200 overflow-hidden">
@@ -160,6 +160,31 @@ export default function Home() {
                   </h3>
                   <p className="text-sm text-gray-400 leading-relaxed">
                     30 moves each player. Position evaluated by engine to determine winner.
+                  </p>
+                </div>
+              </div>
+            </Link>
+
+            {/* 20 Questions Tile */}
+            <Link href="/games/twenty-questions" className="group">
+              <div className="bg-[#111111] rounded-lg border border-gray-800/50 hover:border-gray-700 transition-all duration-200 overflow-hidden">
+                <div className="aspect-video bg-gradient-to-br from-green-900/20 to-teal-900/20 flex items-center justify-center">
+                  <span className="text-6xl">🤔</span>
+                </div>
+                <div className="p-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="px-2 py-1 text-xs font-medium bg-pink-500/10 text-pink-400 border border-pink-500/20 rounded">
+                      Strategy
+                    </span>
+                    <span className="px-2 py-1 text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded">
+                      2-player
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors">
+                    20 Questions
+                  </h3>
+                  <p className="text-sm text-gray-400 leading-relaxed">
+                    20 rounds of AI vs AI deduction. Guess the secret object!
                   </p>
                 </div>
               </div>

@@ -37,6 +37,67 @@ export default function TwentyQuestionsPage() {
   const [result, setResult] = useState<GameResult | null>(null);
   const [showPlayer1Turns, setShowPlayer1Turns] = useState(true);
   const [showPlayer2Turns, setShowPlayer2Turns] = useState(true);
+  const [commentaryEnabled, setCommentaryEnabled] = useState(true);
+  const [currentCommentary, setCurrentCommentary] = useState<string>("");
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+  // Function to generate and play end-of-game summary
+  const generateEndSummary = async (result: GameResult): Promise<void> => {
+    if (!commentaryEnabled) return;
+
+    return new Promise(async (resolve) => {
+      try {
+        // Generate end summary text
+        const summaryResponse = await fetch("/api/20q-end-summary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            winner: result.winner,
+            winnerReason: result.winnerReason,
+            secretObject: result.secretObject,
+            player1Policy: result.player1Policy,
+            player2Policy: result.player2Policy,
+            player1QuestionsUsed: result.player1.questionsUsed,
+            player2QuestionsUsed: result.player2.questionsUsed,
+            player1Correct: result.player1.correct,
+            player2Correct: result.player2.correct,
+          }),
+        });
+
+        const { summary } = await summaryResponse.json();
+        setCurrentCommentary(summary);
+
+        // Generate TTS audio
+        const ttsResponse = await fetch("/api/text-to-speech", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: summary }),
+        });
+
+        const audioBlob = await ttsResponse.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        // Play audio and wait for it to finish
+        setIsPlayingAudio(true);
+        audio.onended = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        audio.onerror = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        await audio.play();
+      } catch (error) {
+        console.error("Error generating end summary:", error);
+        setIsPlayingAudio(false);
+        resolve();
+      }
+    });
+  };
 
   const handleStartGame = async () => {
     if (!player1Policy.trim() || !player2Policy.trim()) {
@@ -152,13 +213,17 @@ export default function TwentyQuestionsPage() {
 
       // Update final result
       if (gameEnd) {
-        setResult((prev) => ({
-          ...prev!,
-          winner: gameEnd!.winner,
-          winnerReason: gameEnd!.winnerReason,
-          player1: gameEnd!.player1,
-          player2: gameEnd!.player2,
-        }));
+        const finalResult = {
+          ...result!,
+          winner: gameEnd.winner,
+          winnerReason: gameEnd.winnerReason,
+          player1: gameEnd.player1,
+          player2: gameEnd.player2,
+        };
+        setResult(finalResult);
+
+        // Generate and play end-of-game summary
+        await generateEndSummary(finalResult);
       }
 
       setPhase("finished");
@@ -425,6 +490,32 @@ export default function TwentyQuestionsPage() {
                 {winnerReason}
               </div>
             </div>
+
+            {/* Commentary Display */}
+            {commentaryEnabled && currentCommentary && (
+              <div className="mb-6 max-w-2xl mx-auto bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/30 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                      <span className="text-xl">🎙️</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-purple-400 font-medium text-sm">Commentator's Take</span>
+                      {isPlayingAudio && (
+                        <div className="flex gap-1">
+                          <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse"></div>
+                          <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: "150ms"}}></div>
+                          <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: "300ms"}}></div>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-gray-300 text-sm leading-relaxed">{currentCommentary}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Results Summary */}
             <div className="grid grid-cols-3 gap-6 max-w-xl mx-auto mb-6">

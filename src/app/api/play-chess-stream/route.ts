@@ -321,8 +321,8 @@ export async function POST(request: NextRequest) {
           )
         );
 
-        // Play exactly TOTAL_MOVES moves (or until checkmate/stalemate)
-        while (moves.length < TOTAL_MOVES && !chess.isCheckmate() && !chess.isStalemate()) {
+        // Play exactly TOTAL_MOVES moves (or until checkmate/stalemate/draw)
+        while (moves.length < TOTAL_MOVES && !chess.isCheckmate() && !chess.isStalemate() && !chess.isDraw()) {
           const currentPlayer = chess.turn() === "w" ? "white" : "black";
           const currentPrompt =
             currentPlayer === "white" ? whitePrompt : blackPrompt;
@@ -405,14 +405,24 @@ export async function POST(request: NextRequest) {
         let gameEndReason: string;
         let evaluation = 0;
 
+        console.log("Game loop ended. Determining result...");
+        console.log(`Checkmate: ${chess.isCheckmate()}, Stalemate: ${chess.isStalemate()}, Draw: ${chess.isDraw()}`);
+
         if (chess.isCheckmate()) {
           winner = chess.turn() === "w" ? "black" : "white";
           gameEndReason = `Checkmate! ${winner === "white" ? "White" : "Black"} wins!`;
           evaluation = winner === "white" ? 10000 : -10000;
+          console.log(`Game ended by checkmate. Winner: ${winner}`);
         } else if (chess.isStalemate()) {
           winner = "draw";
           gameEndReason = "Stalemate - Draw!";
           evaluation = 0;
+          console.log("Game ended by stalemate");
+        } else if (chess.isDraw()) {
+          winner = "draw";
+          gameEndReason = "Draw by insufficient material, threefold repetition, or 50-move rule!";
+          evaluation = 0;
+          console.log("Game ended by draw");
         } else {
           // Game reached move limit - evaluate position
           console.log("Game reached move limit, evaluating position...");

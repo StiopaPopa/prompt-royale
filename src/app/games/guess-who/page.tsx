@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 
 type GamePhase = "setup" | "playing" | "finished";
@@ -171,6 +171,19 @@ export default function GuessWhoPage() {
   );
   const [currentCommentary, setCurrentCommentary] = useState<string>("");
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Cleanup audio on component unmount or when leaving the page
+  useEffect(() => {
+    return () => {
+      // Stop and cleanup any playing audio when component unmounts
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.src = "";
+        currentAudioRef.current = null;
+      }
+    };
+  }, []);
 
   const generateEndSummary = async (result: GameResult): Promise<void> => {
     return new Promise(async (resolve) => {
@@ -211,16 +224,21 @@ export default function GuessWhoPage() {
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
 
+        // Store reference to current audio for cleanup
+        currentAudioRef.current = audio;
+
         // Step 3: Play audio and wait for completion
         setIsPlayingAudio(true);
         audio.onended = () => {
           setIsPlayingAudio(false);
           URL.revokeObjectURL(audioUrl);
+          currentAudioRef.current = null;
           resolve();
         };
         audio.onerror = () => {
           setIsPlayingAudio(false);
           URL.revokeObjectURL(audioUrl);
+          currentAudioRef.current = null;
           resolve();
         };
         await audio.play();

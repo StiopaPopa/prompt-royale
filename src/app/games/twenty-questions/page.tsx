@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 
 type GamePhase = "setup" | "playing" | "finished";
@@ -40,6 +40,19 @@ export default function TwentyQuestionsPage() {
   const [commentaryEnabled, setCommentaryEnabled] = useState(true);
   const [currentCommentary, setCurrentCommentary] = useState<string>("");
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Cleanup audio on component unmount or when leaving the page
+  useEffect(() => {
+    return () => {
+      // Stop and cleanup any playing audio when component unmounts
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.src = "";
+        currentAudioRef.current = null;
+      }
+    };
+  }, []);
 
   // Function to generate and play end-of-game summary
   const generateEndSummary = async (result: GameResult): Promise<void> => {
@@ -78,16 +91,21 @@ export default function TwentyQuestionsPage() {
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
 
+        // Store reference to current audio for cleanup
+        currentAudioRef.current = audio;
+
         // Play audio and wait for it to finish
         setIsPlayingAudio(true);
         audio.onended = () => {
           setIsPlayingAudio(false);
           URL.revokeObjectURL(audioUrl);
+          currentAudioRef.current = null;
           resolve();
         };
         audio.onerror = () => {
           setIsPlayingAudio(false);
           URL.revokeObjectURL(audioUrl);
+          currentAudioRef.current = null;
           resolve();
         };
         await audio.play();

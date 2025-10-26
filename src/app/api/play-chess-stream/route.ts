@@ -311,8 +311,8 @@ export async function POST(request: NextRequest) {
       try {
         const chess = new Chess();
         const moves: MoveResult[] = [];
-        const MOVES_PER_PLAYER = 30; // Each player makes exactly 30 moves
-        const TOTAL_MOVES = MOVES_PER_PLAYER * 2; // 60 total moves
+        const MOVES_PER_PLAYER = 15; // Each player makes exactly 15 moves
+        const TOTAL_MOVES = MOVES_PER_PLAYER * 2; // 30 total moves
 
         console.log("Starting chess game with streaming...");
         console.log(`Game will run for ${MOVES_PER_PLAYER} moves per player (${TOTAL_MOVES} total moves)`);

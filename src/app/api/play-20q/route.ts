@@ -508,7 +508,7 @@ REASONING: [brief 1-2 sentence explanation of why you're ${isFinalQuestion ? "gu
 
       // Parse question and reasoning
       const questionMatch = content.match(/QUESTION:\s*(.+)/i);
-      const reasoningMatch = content.match(/REASONING:\s*(.+)/is);
+      const reasoningMatch = content.match(/REASONING:\s*([\s\S]+)/i);
 
       const question = questionMatch
         ? questionMatch[1].trim()

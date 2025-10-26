@@ -339,17 +339,21 @@ export default function QuantTradingPage() {
     const paddingX = 40;
     const paddingY = 20;
 
+    const denom = Math.max(1, prices.length - 1);
+    const safeRange = chartRange === 0 || !isFinite(chartRange) ? 1 : chartRange;
     const getX = (index: number) =>
-      paddingX + (index / (prices.length - 1)) * (width - 2 * paddingX);
+      paddingX + (index / denom) * (width - 2 * paddingX);
     const getY = (price: number) =>
-      paddingY + ((chartMax - price) / chartRange) * (height - 2 * paddingY);
+      paddingY + ((chartMax - price) / safeRange) * (height - 2 * paddingY);
 
     const pathData = prices
       .map((point, index) => {
         const x = getX(index);
         const y = getY(point.price);
+        if (!isFinite(x) || !isFinite(y)) return null;
         return `${index === 0 ? "M" : "L"} ${x} ${y}`;
       })
+      .filter(Boolean)
       .join(" ");
 
     const isUp =
@@ -363,9 +367,8 @@ export default function QuantTradingPage() {
           <h3 className="text-sm font-medium text-white">Price Chart</h3>
           <div className="flex items-center gap-2">
             <div
-              className={`text-lg font-mono font-bold ${
-                isUp ? "text-green-400" : "text-red-400"
-              }`}
+              className={`text-lg font-mono font-bold ${isUp ? "text-green-400" : "text-red-400"
+                }`}
             >
               {formatCurrency(currentPrice)}
             </div>
@@ -414,18 +417,22 @@ export default function QuantTradingPage() {
             />
 
             {/* Data points */}
-            {prices.map((point, index) => (
-              <circle
-                key={index}
-                cx={getX(index)}
-                cy={getY(point.price)}
-                r={3}
-                fill={lineColor}
-                className={`drop-shadow-sm ${
-                  index === prices.length - 1 ? "animate-pulse" : ""
-                }`}
-              />
-            ))}
+            {prices.map((point, index) => {
+              const cx = getX(index);
+              const cy = getY(point.price);
+              if (!isFinite(cx) || !isFinite(cy)) return null;
+              return (
+                <circle
+                  key={index}
+                  cx={cx}
+                  cy={cy}
+                  r={3}
+                  fill={lineColor}
+                  className={`drop-shadow-sm ${index === prices.length - 1 ? "animate-pulse" : ""
+                    }`}
+                />
+              );
+            })}
           </svg>
         </div>
         <div className="flex justify-between text-xs text-gray-400 mt-2">
@@ -572,13 +579,12 @@ export default function QuantTradingPage() {
               <div className="flex justify-between text-lg">
                 <span className="text-gray-400">Position (P):</span>
                 <span
-                  className={`font-mono text-xl ${
-                    player1.finalShares > 0
+                  className={`font-mono text-xl ${player1.finalShares > 0
                       ? "text-pink-400"
                       : player1.finalShares < 0
-                      ? "text-pink-400"
-                      : "text-gray-400"
-                  }`}
+                        ? "text-pink-400"
+                        : "text-gray-400"
+                    }`}
                 >
                   {player1.finalShares > 0
                     ? `+${player1.finalShares}`
@@ -590,20 +596,19 @@ export default function QuantTradingPage() {
                 <span className="text-white font-mono text-xl">
                   {formatCurrency(
                     player1.finalCash +
-                      player1.finalShares *
-                        (player1.decisions.length > 0
-                          ? player1.decisions[player1.decisions.length - 1]
-                              .price
-                          : startPrice)
+                    player1.finalShares *
+                    (player1.decisions.length > 0
+                      ? player1.decisions[player1.decisions.length - 1]
+                        .price
+                      : startPrice)
                   )}
                 </span>
               </div>
               <div className="flex justify-between border-t border-gray-700 pt-4 text-lg">
                 <span className="text-gray-400">P&L:</span>
                 <span
-                  className={`font-mono font-bold text-2xl ${
-                    player1.finalPnl >= 0 ? "text-green-400" : "text-red-400"
-                  }`}
+                  className={`font-mono font-bold text-2xl ${player1.finalPnl >= 0 ? "text-green-400" : "text-red-400"
+                    }`}
                 >
                   {formatCurrency(player1.finalPnl)} (
                   {formatPercent(player1.totalReturn)})
@@ -627,13 +632,12 @@ export default function QuantTradingPage() {
               <div className="flex justify-between text-lg">
                 <span className="text-gray-400">Position (P):</span>
                 <span
-                  className={`font-mono text-xl ${
-                    player2.finalShares > 0
+                  className={`font-mono text-xl ${player2.finalShares > 0
                       ? "text-pink-400"
                       : player2.finalShares < 0
-                      ? "text-pink-400"
-                      : "text-gray-400"
-                  }`}
+                        ? "text-pink-400"
+                        : "text-gray-400"
+                    }`}
                 >
                   {player2.finalShares > 0
                     ? `+${player2.finalShares}`
@@ -645,20 +649,19 @@ export default function QuantTradingPage() {
                 <span className="text-white font-mono text-xl">
                   {formatCurrency(
                     player2.finalCash +
-                      player2.finalShares *
-                        (player2.decisions.length > 0
-                          ? player2.decisions[player2.decisions.length - 1]
-                              .price
-                          : startPrice)
+                    player2.finalShares *
+                    (player2.decisions.length > 0
+                      ? player2.decisions[player2.decisions.length - 1]
+                        .price
+                      : startPrice)
                   )}
                 </span>
               </div>
               <div className="flex justify-between border-t border-gray-700 pt-4 text-lg">
                 <span className="text-gray-400">P&L:</span>
                 <span
-                  className={`font-mono font-bold text-2xl ${
-                    player2.finalPnl >= 0 ? "text-green-400" : "text-red-400"
-                  }`}
+                  className={`font-mono font-bold text-2xl ${player2.finalPnl >= 0 ? "text-green-400" : "text-red-400"
+                    }`}
                 >
                   {formatCurrency(player2.finalPnl)} (
                   {formatPercent(player2.totalReturn)})
@@ -702,8 +705,8 @@ export default function QuantTradingPage() {
                           {decision.action === "buy"
                             ? "🟢 BUY"
                             : decision.action === "sell"
-                            ? "🔴 SELL"
-                            : "⚪ PASS"}
+                              ? "🔴 SELL"
+                              : "⚪ PASS"}
                         </div>
                         <div className="text-white font-mono text-sm">
                           {formatCurrency(decision.price)}
@@ -756,8 +759,8 @@ export default function QuantTradingPage() {
                           {decision.action === "buy"
                             ? "🟢 BUY"
                             : decision.action === "sell"
-                            ? "🔴 SELL"
-                            : "⚪ PASS"}
+                              ? "🔴 SELL"
+                              : "⚪ PASS"}
                         </div>
                         <div className="text-white font-mono text-sm">
                           {formatCurrency(decision.price)}
@@ -832,9 +835,8 @@ export default function QuantTradingPage() {
                   Total Return
                 </div>
                 <div
-                  className={`text-2xl font-mono font-bold ${
-                    totalReturn >= 0 ? "text-green-400" : "text-red-400"
-                  }`}
+                  className={`text-2xl font-mono font-bold ${totalReturn >= 0 ? "text-green-400" : "text-red-400"
+                    }`}
                 >
                   {formatPercent(totalReturn)}
                 </div>
@@ -846,13 +848,12 @@ export default function QuantTradingPage() {
           <div className="bg-[#111111] border border-gray-800/50 rounded-lg p-8">
             <div className="text-center mb-6">
               <div
-                className={`text-3xl font-semibold mb-2 ${
-                  winner === "tie"
+                className={`text-3xl font-semibold mb-2 ${winner === "tie"
                     ? "text-yellow-400"
                     : winner === 1
-                    ? "text-blue-400"
-                    : "text-red-400"
-                }`}
+                      ? "text-blue-400"
+                      : "text-red-400"
+                  }`}
               >
                 {winner === "tie" ? "It's a Tie" : `Player ${winner} Wins`}
               </div>
@@ -946,13 +947,12 @@ export default function QuantTradingPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-400">Final Position (P):</span>
                   <span
-                    className={`font-mono ${
-                      player1.finalShares > 0
+                    className={`font-mono ${player1.finalShares > 0
                         ? "text-pink-400"
                         : player1.finalShares < 0
-                        ? "text-pink-400"
-                        : "text-gray-400"
-                    }`}
+                          ? "text-pink-400"
+                          : "text-gray-400"
+                      }`}
                   >
                     {player1.finalShares > 0
                       ? `+${player1.finalShares}`
@@ -970,9 +970,8 @@ export default function QuantTradingPage() {
                 <div className="flex justify-between border-t border-gray-700 pt-3">
                   <span className="text-gray-400">Total P&L:</span>
                   <span
-                    className={`font-mono font-bold ${
-                      player1.finalPnl >= 0 ? "text-green-400" : "text-red-400"
-                    }`}
+                    className={`font-mono font-bold ${player1.finalPnl >= 0 ? "text-green-400" : "text-red-400"
+                      }`}
                   >
                     {formatCurrency(player1.finalPnl)} (
                     {formatPercent(player1.totalReturn)})
@@ -996,13 +995,12 @@ export default function QuantTradingPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-400">Final Position (P):</span>
                   <span
-                    className={`font-mono ${
-                      player2.finalShares > 0
+                    className={`font-mono ${player2.finalShares > 0
                         ? "text-pink-400"
                         : player2.finalShares < 0
-                        ? "text-pink-400"
-                        : "text-gray-400"
-                    }`}
+                          ? "text-pink-400"
+                          : "text-gray-400"
+                      }`}
                   >
                     {player2.finalShares > 0
                       ? `+${player2.finalShares}`
@@ -1020,9 +1018,8 @@ export default function QuantTradingPage() {
                 <div className="flex justify-between border-t border-gray-700 pt-3">
                   <span className="text-gray-400">Total P&L:</span>
                   <span
-                    className={`font-mono font-bold ${
-                      player2.finalPnl >= 0 ? "text-green-400" : "text-red-400"
-                    }`}
+                    className={`font-mono font-bold ${player2.finalPnl >= 0 ? "text-green-400" : "text-red-400"
+                      }`}
                   >
                     {formatCurrency(player2.finalPnl)} (
                     {formatPercent(player2.totalReturn)})
@@ -1068,8 +1065,8 @@ export default function QuantTradingPage() {
                             {decision.action === "buy"
                               ? "🟢 BUY"
                               : decision.action === "sell"
-                              ? "🔴 SELL"
-                              : "⚪ PASS"}
+                                ? "🔴 SELL"
+                                : "⚪ PASS"}
                           </div>
                           <div className="text-white font-mono text-sm">
                             {formatCurrency(decision.price)}
@@ -1124,8 +1121,8 @@ export default function QuantTradingPage() {
                             {decision.action === "buy"
                               ? "🟢 BUY"
                               : decision.action === "sell"
-                              ? "🔴 SELL"
-                              : "⚪ PASS"}
+                                ? "🔴 SELL"
+                                : "⚪ PASS"}
                           </div>
                           <div className="text-white font-mono text-sm">
                             {formatCurrency(decision.price)}

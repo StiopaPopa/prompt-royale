@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface MoveResult {
   moveNumber: number;
@@ -83,15 +84,13 @@ function ChessBoard({ fen }: { fen: string }) {
             return (
               <div
                 key={`${rowIndex}-${colIndex}`}
-                className={`w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 flex items-center justify-center relative ${
-                  isLight ? "bg-[#F0D9B5]" : "bg-[#B58863]"
-                }`}
+                className={`w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 flex items-center justify-center relative ${isLight ? "bg-[#F0D9B5]" : "bg-[#B58863]"
+                  }`}
               >
                 {piece && (
                   <span
-                    className={`text-4xl sm:text-5xl md:text-6xl ${
-                      isWhitePiece ? "text-white" : "text-black"
-                    }`}
+                    className={`text-4xl sm:text-5xl md:text-6xl ${isWhitePiece ? "text-white" : "text-black"
+                      }`}
                     style={{
                       filter: isWhitePiece
                         ? "drop-shadow(0 2px 4px rgba(0,0,0,0.9))"
@@ -103,17 +102,15 @@ function ChessBoard({ fen }: { fen: string }) {
                 )}
                 {/* File labels */}
                 {rowIndex === 7 && (
-                  <span className={`absolute bottom-1 right-1.5 text-xs font-semibold ${
-                    isLight ? "text-[#B58863]" : "text-[#F0D9B5]"
-                  }`}>
+                  <span className={`absolute bottom-1 right-1.5 text-xs font-semibold ${isLight ? "text-[#B58863]" : "text-[#F0D9B5]"
+                    }`}>
                     {files[colIndex]}
                   </span>
                 )}
                 {/* Rank labels */}
                 {colIndex === 0 && (
-                  <span className={`absolute top-1 left-1.5 text-xs font-semibold ${
-                    isLight ? "text-[#B58863]" : "text-[#F0D9B5]"
-                  }`}>
+                  <span className={`absolute top-1 left-1.5 text-xs font-semibold ${isLight ? "text-[#B58863]" : "text-[#F0D9B5]"
+                    }`}>
                     {ranks[rowIndex]}
                   </span>
                 )}
@@ -142,6 +139,17 @@ export default function ChessPage() {
   const [currentCommentary, setCurrentCommentary] = useState<string>("");
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioQueue, setAudioQueue] = useState<HTMLAudioElement[]>([]);
+  const router = useRouter();
+
+  useEffect(() => {
+    // Load Player 1 (White) prompt from session storage
+    try {
+      const p1 = sessionStorage.getItem("chess.whitePrompt");
+      if (p1) {
+        setWhitePrompt(p1);
+      }
+    } catch { }
+  }, []);
 
   // Function to generate and play commentary (returns promise that resolves when audio finishes)
   const generateCommentary = async (moves: MoveResult[]): Promise<void> => {
@@ -414,6 +422,10 @@ export default function ChessPage() {
     setError(null);
     setCurrentCommentary("");
     setIsPlayingAudio(false);
+    try {
+      sessionStorage.removeItem("chess.whitePrompt");
+    } catch { }
+    router.push('/games/chess/player1');
   };
 
   const getCurrentFEN = () => {
@@ -467,38 +479,20 @@ export default function ChessPage() {
 
         {gameState === "setup" && (
           <div className="max-w-4xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              {/* White Player */}
-              <div className="bg-[#111111] rounded-lg p-6 border border-blue-500/30">
-                <h2 className="text-xl font-semibold text-blue-400 mb-4">
-                  White Player ♔
-                </h2>
-                <label className="block text-gray-400 mb-2 text-sm">
-                  Enter your strategy prompt:
-                </label>
-                <textarea
-                  value={whitePrompt}
-                  onChange={(e) => setWhitePrompt(e.target.value)}
-                  className="w-full h-40 bg-black/40 border border-gray-800 rounded-lg p-4 text-white text-sm focus:outline-none focus:border-blue-500/50 resize-none placeholder:text-gray-600"
-                  placeholder="Example: Control the center, develop knights before bishops, castle early for king safety."
-                />
-              </div>
-
-              {/* Black Player */}
-              <div className="bg-[#111111] rounded-lg p-6 border border-red-500/30">
-                <h2 className="text-xl font-semibold text-red-400 mb-4">
-                  Black Player ♚
-                </h2>
-                <label className="block text-gray-400 mb-2 text-sm">
-                  Enter your strategy prompt:
-                </label>
-                <textarea
-                  value={blackPrompt}
-                  onChange={(e) => setBlackPrompt(e.target.value)}
-                  className="w-full h-40 bg-black/40 border border-gray-800 rounded-lg p-4 text-white text-sm focus:outline-none focus:border-red-500/50 resize-none placeholder:text-gray-600"
-                  placeholder="Example: Play aggressive, attack the king early, sacrifice material for tactical advantages."
-                />
-              </div>
+            {/* Step 2: Only Black Player input; White provided previously */}
+            <div className="bg-[#111111] rounded-lg p-6 border border-red-500/30 mb-8">
+              <h2 className="text-xl font-semibold text-red-400 mb-4">
+                Black Player ♚
+              </h2>
+              <label className="block text-gray-400 mb-2 text-sm">
+                Enter your strategy prompt:
+              </label>
+              <textarea
+                value={blackPrompt}
+                onChange={(e) => setBlackPrompt(e.target.value)}
+                className="w-full h-40 bg-black/40 border border-gray-800 rounded-lg p-4 text-white text-sm focus:outline-none focus:border-red-500/50 resize-none placeholder:text-gray-600"
+                placeholder="Example: Play aggressive, attack the king early, sacrifice material for tactical advantages."
+              />
             </div>
 
             {error && (
@@ -522,11 +516,11 @@ export default function ChessPage() {
               </label>
             </div>
 
-            <div className="text-center">
+            <div className="mt-6">
               <button
                 onClick={startGame}
                 disabled={isLoading}
-                className="bg-white text-black hover:bg-gray-100 font-medium py-3 px-10 rounded-lg text-base transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-white text-black hover:bg-gray-100 font-medium py-3 rounded-lg text-base transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? "Starting Battle..." : "Start Chess Battle"}
               </button>
@@ -536,28 +530,28 @@ export default function ChessPage() {
 
         {gameState === "playing" && (
           <div className="max-w-6xl mx-auto">
-              {/* Player Strategies Display */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div className="bg-[#111111] border border-gray-800/50 rounded-lg p-6">
-                  <h3 className="text-blue-400 text-sm font-medium mb-3 uppercase tracking-wider">
-                    White Player Strategy ♔
-                  </h3>
-                  <div className="text-gray-400 text-sm leading-relaxed">
-                    {whitePrompt}
-                  </div>
-                </div>
-
-                <div className="bg-[#111111] border border-gray-800/50 rounded-lg p-6">
-                  <h3 className="text-red-400 text-sm font-medium mb-3 uppercase tracking-wider">
-                    Black Player Strategy ♚
-                  </h3>
-                  <div className="text-gray-400 text-sm leading-relaxed">
-                    {blackPrompt}
-                  </div>
+            {/* Player Strategies Display */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="bg-[#111111] border border-gray-800/50 rounded-lg p-6">
+                <h3 className="text-blue-400 text-sm font-medium mb-3 uppercase tracking-wider">
+                  White Player Strategy ♔
+                </h3>
+                <div className="text-gray-400 text-sm leading-relaxed">
+                  {whitePrompt}
                 </div>
               </div>
 
-              {!gameResult ? (
+              <div className="bg-[#111111] border border-gray-800/50 rounded-lg p-6">
+                <h3 className="text-red-400 text-sm font-medium mb-3 uppercase tracking-wider">
+                  Black Player Strategy ♚
+                </h3>
+                <div className="text-gray-400 text-sm leading-relaxed">
+                  {blackPrompt}
+                </div>
+              </div>
+            </div>
+
+            {!gameResult ? (
               <div className="text-center py-20">
                 <div className="bg-[#111111] border border-gray-800/50 rounded-lg p-12">
                   <div className="text-6xl mb-6 animate-pulse">♟️</div>
@@ -596,11 +590,10 @@ export default function ChessPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           <span
-                            className={`text-3xl font-mono font-bold ${
-                              gameResult.moves[currentMoveIndex - 1].player === "white"
+                            className={`text-3xl font-mono font-bold ${gameResult.moves[currentMoveIndex - 1].player === "white"
                                 ? "text-blue-400"
                                 : "text-red-400"
-                            }`}
+                              }`}
                           >
                             {gameResult.moves[currentMoveIndex - 1].san}
                           </span>
@@ -662,8 +655,8 @@ export default function ChessPage() {
                               {isPlayingAudio && (
                                 <div className="flex gap-1">
                                   <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse"></div>
-                                  <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: "150ms"}}></div>
-                                  <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: "300ms"}}></div>
+                                  <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: "150ms" }}></div>
+                                  <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: "300ms" }}></div>
                                 </div>
                               )}
                             </div>
@@ -678,11 +671,10 @@ export default function ChessPage() {
                       <div className="w-full max-w-2xl">
                         <div className="bg-black/40 border border-gray-800 rounded-lg p-4">
                           <div
-                            className={`text-xs font-medium mb-2 uppercase tracking-wider ${
-                              gameResult.moves[currentMoveIndex - 1].player === "white"
+                            className={`text-xs font-medium mb-2 uppercase tracking-wider ${gameResult.moves[currentMoveIndex - 1].player === "white"
                                 ? "text-blue-400"
                                 : "text-red-400"
-                            }`}
+                              }`}
                           >
                             {gameResult.moves[currentMoveIndex - 1].player === "white"
                               ? "White's"
@@ -737,19 +729,18 @@ export default function ChessPage() {
             <div className="bg-[#111111] border border-gray-800/50 rounded-lg p-8 mb-6">
               <div className="text-center mb-6">
                 <div
-                  className={`text-3xl font-semibold mb-2 ${
-                    gameResult.winner === "white"
+                  className={`text-3xl font-semibold mb-2 ${gameResult.winner === "white"
                       ? "text-blue-400"
                       : gameResult.winner === "black"
-                      ? "text-red-400"
-                      : "text-yellow-400"
-                  }`}
+                        ? "text-red-400"
+                        : "text-yellow-400"
+                    }`}
                 >
                   {gameResult.winner === "white"
                     ? "White Wins ♔"
                     : gameResult.winner === "black"
-                    ? "Black Wins ♚"
-                    : "Draw"}
+                      ? "Black Wins ♚"
+                      : "Draw"}
                 </div>
                 <div className="text-sm text-gray-400 mt-2">
                   {gameResult.gameEndReason}
@@ -767,13 +758,12 @@ export default function ChessPage() {
                   <div className="text-center">
                     <div className="text-xs text-gray-500 mb-1">Engine Eval</div>
                     <div
-                      className={`text-2xl font-mono font-bold ${
-                        parseFloat(gameResult.evaluationInPawns) > 0.5
+                      className={`text-2xl font-mono font-bold ${parseFloat(gameResult.evaluationInPawns) > 0.5
                           ? "text-blue-400"
                           : parseFloat(gameResult.evaluationInPawns) < -0.5
-                          ? "text-red-400"
-                          : "text-yellow-400"
-                      }`}
+                            ? "text-red-400"
+                            : "text-yellow-400"
+                        }`}
                     >
                       {parseFloat(gameResult.evaluationInPawns) > 0 ? "+" : ""}
                       {gameResult.evaluationInPawns}
@@ -900,11 +890,10 @@ export default function ChessPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`text-sm font-bold ${
-                              move.player === "white"
+                            className={`text-sm font-bold ${move.player === "white"
                                 ? "text-blue-400"
                                 : "text-red-400"
-                            }`}
+                              }`}
                           >
                             {move.san}
                           </span>

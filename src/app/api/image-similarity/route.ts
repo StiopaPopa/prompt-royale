@@ -95,19 +95,38 @@ async function getRandomReferenceDataUrl(kind: 'hd' | 'meme' = 'hd', query?: str
 }
 
 async function generateImageWithGemini(prompt: string, modelOverride?: string) {
-    const apiKey = "AIzaSyDXr3wMP6pULhsafwUrEqqiXhrSXUUhqbk"
-;
-    // const model = modelOverride || process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
     const model = 'gemini-2.5-flash-image';
 
-    if (!apiKey) throw new Error('Missing GEMINI_API_KEY on server');
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-    const res = await fetch(url, {
-        method: 'POST',
-        headers: {
+    // Try Lava proxy first, fallback to direct Gemini API
+    const useLava = !!process.env.LAVA_FORWARD_TOKEN;
+
+    let url: string;
+    let headers: Record<string, string>;
+
+    if (useLava) {
+        // Route through Lava Build proxy
+        const lavaBaseUrl = process.env.LAVA_BASE_URL || 'https://api.lavapayments.com/v1';
+        const geminiEndpoint = process.env.GEMINI_IMAGE_GENERATION_URL ||
+            `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+        url = `${lavaBaseUrl}/forward?u=${encodeURIComponent(geminiEndpoint)}`;
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.LAVA_FORWARD_TOKEN}`,
+        };
+    } else {
+        // Direct Gemini API call (legacy)
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) throw new Error('Missing GEMINI_API_KEY or LAVA_FORWARD_TOKEN');
+        url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+        headers = {
             'Content-Type': 'application/json',
             'x-goog-api-key': apiKey,
-        },
+        };
+    }
+
+    const res = await fetch(url, {
+        method: 'POST',
+        headers,
         body: JSON.stringify({
             contents: [
                 {
@@ -171,12 +190,34 @@ function parseDataUrlToInline(dataUrl: string): { mime_type: string; data: strin
 }
 
 async function scoreWithGemini(referenceDataUrl: string, player1DataUrl: string, player2DataUrl: string, modelOverride?: string) {
-    const apiKey = "AIzaSyDXr3wMP6pULhsafwUrEqqiXhrSXUUhqbk"
-;
-    // Ensure Gemini 2.5 flash (multimodal) is used for judging by default
     const model = modelOverride || 'gemini-2.5-flash';
-    if (!apiKey) throw new Error('Missing GEMINI_API_KEY on server');
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+
+    // Try Lava proxy first, fallback to direct Gemini API
+    const useLava = !!process.env.LAVA_FORWARD_TOKEN;
+
+    let url: string;
+    let headers: Record<string, string>;
+
+    if (useLava) {
+        // Route through Lava Build proxy for usage tracking and billing
+        const lavaBaseUrl = process.env.LAVA_BASE_URL || 'https://api.lavapayments.com/v1';
+        const geminiEndpoint = process.env.GEMINI_JUDGE_URL ||
+            `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+        url = `${lavaBaseUrl}/forward?u=${encodeURIComponent(geminiEndpoint)}`;
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.LAVA_FORWARD_TOKEN}`,
+        };
+    } else {
+        // Direct Gemini API call (legacy)
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) throw new Error('Missing GEMINI_API_KEY or LAVA_FORWARD_TOKEN');
+        url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+        headers = {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+        };
+    }
 
     const refInline = parseDataUrlToInline(referenceDataUrl);
     const p1Inline = parseDataUrlToInline(player1DataUrl);
@@ -188,10 +229,7 @@ Return ONLY compact JSON with keys: {"player1Score": number, "player2Score": num
 
     const res = await fetch(url, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
-        },
+        headers,
         body: JSON.stringify({
             contents: [
                 {

@@ -1,94 +1,21 @@
 'use client';
 
-import { useState, useRef, type ReactNode } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 
 type Scores = { p1: number; p2: number } | null;
 
-function classNames(...classes: Array<string | false | null | undefined>) {
-    return classes.filter(Boolean).join(' ');
-}
-
-async function fileToDataUrl(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
 function ScoreCard({ label, score, color }: { label: string; score: number; color: string }) {
     const pct = Math.max(0, Math.min(100, (score / 10) * 100));
     return (
-        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 shadow-lg">
-            <div className="text-gray-300 mb-3 text-center">{label}</div>
-            <div className="text-white text-5xl font-bold text-center">
-                {score.toFixed(2)} <span className="text-gray-400 text-2xl">/ 10</span>
+        <div className="bg-[#111111] rounded-lg p-6 border border-gray-800/50">
+            <div className="text-gray-400 mb-3 text-center text-sm uppercase tracking-wider">{label}</div>
+            <div className="text-white text-5xl font-mono font-bold text-center">
+                {score.toFixed(2)} <span className="text-gray-500 text-2xl">/ 10</span>
             </div>
-            <div className="mt-6 h-2 rounded bg-gray-700 overflow-hidden">
-                <div className={classNames('h-2', color)} style={{ width: pct + '%' }} />
+            <div className="mt-6 h-2 rounded bg-gray-800 overflow-hidden">
+                <div className={`h-2 ${color}`} style={{ width: pct + '%' }} />
             </div>
-        </div>
-    );
-}
-
-function UploadCard({
-    title,
-    required,
-    image,
-    children,
-    loading,
-    onZoom,
-    variant,
-}: {
-    title: string;
-    required?: boolean;
-    image: string | null;
-    children?: ReactNode;
-    loading?: boolean;
-    onZoom?: () => void;
-    variant?: 'reference' | 'p1' | 'p2';
-}) {
-    const borderColor = variant === 'reference'
-        ? 'border-purple-500/60'
-        : variant === 'p1'
-            ? 'border-blue-500/60'
-            : variant === 'p2'
-                ? 'border-rose-500/60'
-                : 'border-gray-700';
-    return (
-        <div className="bg-gray-900 rounded-2xl p-5 border border-gray-800 shadow-xl">
-            <div className="flex items-center justify-between mb-3">
-                <div className="text-white font-semibold">{title} {required && <span className="text-red-400">*</span>}</div>
-            </div>
-            <div className={classNames("relative aspect-square w-full bg-black/40 border-2 rounded-xl overflow-hidden flex items-center justify-center", borderColor)}>
-                {image ? (
-                    <img src={image} alt={title} className="w-full h-full object-cover" />
-                ) : (
-                    <div className="text-gray-400">No image yet</div>
-                )}
-                {loading && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                        <div className="flex items-center justify-center gap-2">
-                            <span className="w-2.5 h-2.5 bg-white/90 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                            <span className="w-2.5 h-2.5 bg-white/90 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                            <span className="w-2.5 h-2.5 bg-white/90 rounded-full animate-bounce"></span>
-                        </div>
-                    </div>
-                )}
-                {!!image && !loading && (
-                    <button
-                        type="button"
-                        onClick={onZoom}
-                        className="absolute top-2 right-2 px-2.5 py-1.5 text-sm bg-black/60 hover:bg-black/80 border border-white/20 rounded shadow"
-                        aria-label="Zoom image"
-                    >
-                        🔍
-                    </button>
-                )}
-            </div>
-            {children}
         </div>
     );
 }
@@ -112,20 +39,6 @@ export default function ImageSimilarityPage() {
     const [judgeModel, setJudgeModel] = useState<string | null>(null);
     const [reasoning, setReasoning] = useState<string | null>(null);
     const [statusText, setStatusText] = useState<string | null>(null);
-
-    const readyToCompare = Boolean(referenceImage && player1Image && player2Image);
-
-    const onSelect = async (
-        e: React.ChangeEvent<HTMLInputElement>,
-        setter: (v: string) => void,
-    ) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const dataUrl = await fileToDataUrl(file);
-        setter(dataUrl);
-        setScores(null);
-        setWinner(null);
-    };
 
     const compareImages = async () => {
         if (!referenceImage || !p1Prompt.trim() || !p2Prompt.trim()) {
@@ -197,32 +110,83 @@ export default function ImageSimilarityPage() {
 
 
     return (
-        <div className="min-h-screen bg-black text-white">
-            <main className="container mx-auto px-6 py-8">
+        <div className="min-h-screen bg-[#0a0a0a] text-white">
+            {/* Navigation */}
+            <nav className="border-b border-gray-800/50">
+                <div className="container mx-auto px-6 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-8">
+                            <Link href="/" className="font-mono-brand text-xl text-white">
+                                prompt-royale
+                            </Link>
+                            <div className="hidden md:flex items-center gap-6 text-sm">
+                                <Link href="/" className="text-gray-400 hover:text-white transition-colors">
+                                    Games
+                                </Link>
+                                <Link href="/" className="text-gray-400 hover:text-white transition-colors">
+                                    Leaderboard
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <main className="container mx-auto px-6 py-8 max-w-7xl">
+                {/* Header */}
                 <div className="mb-8">
-                    <Link href="/" className="text-blue-400 hover:text-blue-300 mb-4 inline-block">← Back to Home</Link>
-                    <h1 className="text-4xl font-bold mb-2">Image Similarity</h1>
-                    <p className="text-gray-400">Find a reference image and generate two Player images, then compete with a 1-10 score.</p>
+                    <Link href="/" className="text-gray-400 hover:text-white mb-4 inline-block text-sm transition-colors">
+                        ← Back
+                    </Link>
+                    <h1 className="text-4xl font-semibold text-white mb-2">
+                        Image Replication Battle
+                    </h1>
+                    <p className="text-gray-400">Generate images from prompts and compete for similarity to a reference image</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Reference fetch card */}
-                    <UploadCard title="Reference Image" required image={referenceImage} loading={isFindingRef} onZoom={() => referenceImage && setZoomSrc(referenceImage)} variant="reference">
-                        <div className="mt-4 space-y-3">
-                            <div className="space-y-3 w-full">
-                                <div className="flex flex-col sm:flex-row gap-3">
-                                    <div className="sm:w-1/2">
-                                        <label className="block text-sm text-gray-300 mb-1">Reference Source</label>
+                <div className="max-w-4xl mx-auto">
+                    {/* Reference Image Section */}
+                    <div className="bg-[#111111] rounded-lg p-6 border border-gray-800/50 mb-8">
+                        <h2 className="text-xl font-semibold text-white mb-4">Reference Image</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="relative aspect-square w-full bg-black/40 border-2 border-purple-500/60 rounded-lg overflow-hidden flex items-center justify-center">
+                                {referenceImage ? (
+                                    <img src={referenceImage} alt="Reference" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="text-gray-500 text-sm">No image selected</div>
+                                )}
+                                {isFindingRef && (
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <span className="w-2.5 h-2.5 bg-white/90 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                                            <span className="w-2.5 h-2.5 bg-white/90 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                                            <span className="w-2.5 h-2.5 bg-white/90 rounded-full animate-bounce"></span>
+                                        </div>
+                                    </div>
+                                )}
+                                {!!referenceImage && !isFindingRef && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setZoomSrc(referenceImage)}
+                                        className="absolute top-2 right-2 px-2.5 py-1.5 text-xs bg-black/60 hover:bg-black/80 border border-white/20 rounded"
+                                        aria-label="Zoom image"
+                                    >
+                                        🔍
+                                    </button>
+                                )}
+                            </div>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-2">Reference Source</label>
                                         <select
                                             value={refSource}
                                             onChange={(e) => setRefSource((e.target.value as 'hd' | 'meme'))}
                                             disabled={isFindingRef || isLoading}
-                                            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded"
+                                        className="w-full px-3 py-2 bg-black/40 border border-gray-800 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500/50"
                                         >
                                             <option value="hd">HD Photo</option>
                                             <option value="meme">Meme</option>
                                         </select>
-                                    </div>
                                 </div>
                                 <button
                                     onClick={async () => {
@@ -240,93 +204,172 @@ export default function ImageSimilarityPage() {
                                             setIsFindingRef(false);
                                         }
                                     }}
-                                    className="w-full px-4 py-3 text-lg bg-purple-600 hover:bg-purple-700 rounded disabled:bg-gray-700"
+                                    className="w-full px-4 py-2.5 text-sm bg-purple-600 hover:bg-purple-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     disabled={isFindingRef || isLoading}
                                 >{refSource === 'meme' ? 'Find Random Meme' : 'Find Random HD Image'}</button>
-                                <button onClick={() => setReferenceImage(null)} className="w-full px-4 py-3 text-lg bg-gray-700 hover:bg-gray-600 rounded">Reset</button>
+                                <button onClick={() => setReferenceImage(null)} className="w-full px-4 py-2.5 text-sm bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors">Reset</button>
                             </div>
                         </div>
-                    </UploadCard>
+                    </div>
 
-                    {/* Player 1 prompt */}
-                    <UploadCard title="Player 1" required image={player1Image} onZoom={() => player1Image && setZoomSrc(player1Image)} variant="p1">
-                        <div className="mt-4 space-y-3">
+                    {/* Player Prompts Section */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        {/* Player 1 */}
+                        <div className="bg-[#111111] rounded-lg p-6 border border-blue-500/30">
+                            <h2 className="text-xl font-semibold text-blue-400 mb-4">
+                                Player 1
+                            </h2>
+                            <label className="block text-gray-400 mb-2 text-sm">
+                                Enter your image description:
+                            </label>
                             <textarea
                                 placeholder="Describe the image for Player 1 to generate"
                                 value={p1Prompt}
                                 onChange={(e) => setP1Prompt(e.target.value)}
                                 rows={4}
-                                className="w-full mt-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded outline-none focus:ring-2 focus:ring-purple-500"
+                                className="w-full bg-black/40 border border-gray-800 rounded-lg p-4 text-white text-sm focus:outline-none focus:border-blue-500/50 resize-none placeholder:text-gray-600 mb-4"
                             />
+                            {player1Image && (
+                                <div className="relative aspect-square w-full bg-black/40 border-2 border-blue-500/60 rounded-lg overflow-hidden">
+                                    <img src={player1Image} alt="Player 1" className="w-full h-full object-cover" />
+                                    <button
+                                        type="button"
+                                        onClick={() => setZoomSrc(player1Image)}
+                                        className="absolute top-2 right-2 px-2.5 py-1.5 text-xs bg-black/60 hover:bg-black/80 border border-white/20 rounded"
+                                    >
+                                        🔍
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                    </UploadCard>
 
-                    {/* Player 2 prompt */}
-                    <UploadCard title="Player 2" required image={player2Image} onZoom={() => player2Image && setZoomSrc(player2Image)} variant="p2">
-                        <div className="mt-4 space-y-3">
+                        {/* Player 2 */}
+                        <div className="bg-[#111111] rounded-lg p-6 border border-red-500/30">
+                            <h2 className="text-xl font-semibold text-red-400 mb-4">
+                                Player 2
+                            </h2>
+                            <label className="block text-gray-400 mb-2 text-sm">
+                                Enter your image description:
+                            </label>
                             <textarea
                                 placeholder="Describe the image for Player 2 to generate"
                                 value={p2Prompt}
                                 onChange={(e) => setP2Prompt(e.target.value)}
                                 rows={4}
-                                className="w-full mt-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded outline-none focus:ring-2 focus:ring-purple-500"
+                                className="w-full bg-black/40 border border-gray-800 rounded-lg p-4 text-white text-sm focus:outline-none focus:border-red-500/50 resize-none placeholder:text-gray-600 mb-4"
                             />
+                            {player2Image && (
+                                <div className="relative aspect-square w-full bg-black/40 border-2 border-red-500/60 rounded-lg overflow-hidden">
+                                    <img src={player2Image} alt="Player 2" className="w-full h-full object-cover" />
+                                    <button
+                                        type="button"
+                                        onClick={() => setZoomSrc(player2Image)}
+                                        className="absolute top-2 right-2 px-2.5 py-1.5 text-xs bg-black/60 hover:bg-black/80 border border-white/20 rounded"
+                                    >
+                                        🔍
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                    </UploadCard>
                 </div>
 
-                <div className="mt-6 space-y-3">
+                    {error && (
+                        <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-4 mb-6 text-center">
+                            <p className="text-red-300 text-sm">{error}</p>
+                        </div>
+                    )}
+
+                    <div className="text-center">
                     <button
                         onClick={compareImages}
                         disabled={!referenceImage || !p1Prompt.trim() || !p2Prompt.trim() || isLoading || isFindingRef}
-                        className="w-full px-8 py-5 text-lg rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 disabled:from-gray-700 disabled:to-gray-700 hover:from-indigo-600 hover:to-purple-600 transition shadow"
+                            className="bg-white text-black hover:bg-gray-100 font-medium py-3 px-10 rounded-lg text-base transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {isFindingRef ? 'Finding image..' : (isLoading ? 'Comparing…' : '⚡ Generate and Compare!')}
+                            {isFindingRef ? 'Finding image...' : (isLoading ? 'Generating...' : 'Generate and Compare')}
                     </button>
-                    <button onClick={reset} className="w-full px-8 py-5 text-lg rounded-lg bg-gray-700 hover:bg-gray-600 transition shadow">Reset Game</button>
+                    </div>
                 </div>
 
                 {isLoading && (
-                    <div className="mt-4 bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center gap-3">
-                        <span className="inline-block w-5 h-5 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                        <div className="text-gray-300">
-                            <div className="font-medium">{statusText}</div>
-                            <div className="text-xs text-gray-500 mt-1">Steps: Generate P1 → Generate P2 → Judge</div>
+                    <div className="max-w-6xl mx-auto mt-8">
+                        <div className="bg-[#111111] border border-gray-800/50 rounded-lg p-12 text-center">
+                            <div className="text-6xl mb-6 animate-pulse">🎨</div>
+                            <h2 className="text-2xl font-semibold text-white mb-4">
+                                Battle in Progress
+                            </h2>
+                            <p className="text-gray-400 text-sm mb-6">
+                                {statusText || 'Generating images and judging similarity...'}
+                            </p>
+                            <div className="flex justify-center items-center gap-3">
+                                <div
+                                    className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+                                    style={{ animationDelay: "0ms" }}
+                                ></div>
+                                <div
+                                    className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+                                    style={{ animationDelay: "150ms" }}
+                                ></div>
+                                <div
+                                    className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+                                    style={{ animationDelay: "300ms" }}
+                                ></div>
                         </div>
-                        <div className="ml-auto flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-white/70 animate-bounce [animation-delay:-0.3s]"></span>
-                            <span className="w-2 h-2 rounded-full bg-white/70 animate-bounce [animation-delay:-0.15s]"></span>
-                            <span className="w-2 h-2 rounded-full bg-white/70 animate-bounce"></span>
                         </div>
                     </div>
                 )}
 
-                {error && (
-                    <div className="mt-6 p-4 bg-red-900/50 border border-red-700 rounded text-red-200 max-w-2xl">{error}</div>
-                )}
-
                 {scores && (
-                    <div className="mt-10 bg-gray-950/70 border border-gray-800 rounded-2xl p-6">
-                        <h2 className="text-3xl font-bold mb-6 text-center">Comparison Results</h2>
+                    <div className="max-w-6xl mx-auto mt-8">
+                        <div className="space-y-6">
+                            {/* Winner Banner */}
+                            {winner && (
+                                <div className="bg-[#111111] border border-gray-800/50 rounded-lg p-8">
+                                    <div className={`text-3xl font-semibold text-center ${
+                                        winner === 'tie' ? 'text-yellow-400' : winner === 'player1' ? 'text-blue-400' : 'text-red-400'
+                                    }`}>
+                                        {winner === 'tie' ? 'It\'s a Tie' : (winner === 'player1' ? 'Player 1 Wins' : 'Player 2 Wins')}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Score Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <ScoreCard label="Player 1" score={scores.p1} color="bg-purple-400" />
-                            <ScoreCard label="Player 2" score={scores.p2} color="bg-purple-400" />
-                        </div>
-                        {winner && (
-                            <div className="mt-6 w-full px-6 py-6 text-3xl md:text-4xl text-center bg-red-700 rounded-3xl font-extrabold tracking-wide shadow-lg">
-                                {winner === 'tie' ? '🤝 Draw!' : (winner === 'player1' ? '🏆 Player 1 Wins!' : '🏆 Player 2 Wins!')}
+                                <ScoreCard label="Player 1" score={scores.p1} color="bg-blue-400" />
+                                <ScoreCard label="Player 2" score={scores.p2} color="bg-red-400" />
+                            </div>
+
+                            {/* Model Info */}
+                            <div className="bg-[#111111] border border-gray-800/50 rounded-lg p-6">
+                                <div className="text-center text-gray-400 text-sm">
+                                    <div className="mb-2">
+                                        <span className="text-gray-500">Image Model:</span> <span className="text-white">{usedModel || FIXED_GEMINI_MODEL}</span>
+                                    </div>
+                                    {judgeModel && (
+                                        <div>
+                                            <span className="text-gray-500">Judge Model:</span> <span className="text-white">{judgeModel}</span>
                             </div>
                         )}
-                        <div className="mt-4 text-center text-gray-400 text-sm">
-                            Gemini model: <span className="text-gray-200">{usedModel || FIXED_GEMINI_MODEL}</span>
-                            {judgeModel && (<span className="ml-3">Judge model: <span className="text-gray-200">{judgeModel}</span></span>)}
+                                </div>
                         </div>
+
+                            {/* Reasoning */}
                         {reasoning && (
-                            <div className="mt-6 bg-black/40 border border-white/10 rounded-lg p-4 text-sm text-gray-200 whitespace-pre-wrap">
-                                <div className="text-gray-400 mb-2 font-semibold">Why the judge chose this:</div>
-                                {reasoning}
+                                <div className="bg-[#111111] border border-gray-800/50 rounded-lg p-6">
+                                    <div className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-3">Judge Reasoning</div>
+                                    <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{reasoning}</div>
+                                </div>
+                            )}
+
+                            {/* Play Again Button */}
+                            <div className="text-center">
+                                <button
+                                    onClick={reset}
+                                    className="bg-white text-black hover:bg-gray-100 font-medium py-2 px-6 rounded-lg text-sm transition-all duration-200"
+                                >
+                                    Play Again
+                                </button>
                             </div>
-                        )}
+                        </div>
                     </div>
                 )}
 

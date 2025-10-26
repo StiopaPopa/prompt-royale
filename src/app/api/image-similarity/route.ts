@@ -95,8 +95,11 @@ async function getRandomReferenceDataUrl(kind: 'hd' | 'meme' = 'hd', query?: str
 }
 
 async function generateImageWithGemini(prompt: string, modelOverride?: string) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    const model = modelOverride || process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+    const apiKey = "AIzaSyDXr3wMP6pULhsafwUrEqqiXhrSXUUhqbk"
+;
+    // const model = modelOverride || process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+    const model = 'gemini-2.5-flash-image';
+
     if (!apiKey) throw new Error('Missing GEMINI_API_KEY on server');
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
     const res = await fetch(url, {
@@ -168,7 +171,8 @@ function parseDataUrlToInline(dataUrl: string): { mime_type: string; data: strin
 }
 
 async function scoreWithGemini(referenceDataUrl: string, player1DataUrl: string, player2DataUrl: string, modelOverride?: string) {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = "AIzaSyDXr3wMP6pULhsafwUrEqqiXhrSXUUhqbk"
+;
     // Ensure Gemini 2.5 flash (multimodal) is used for judging by default
     const model = modelOverride || 'gemini-2.5-flash';
     if (!apiKey) throw new Error('Missing GEMINI_API_KEY on server');
@@ -242,7 +246,8 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Missing referenceImage, p1Prompt, or p2Prompt' }, { status: 400 });
             }
 
-            const modelToUse = geminiModel || process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+            // const modelToUse = geminiModel || process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+            const modelToUse = 'gemini-2.5-flash-image';
             const [im1, im2] = await Promise.all([
                 generateImageWithGemini(p1Prompt, modelToUse),
                 generateImageWithGemini(p2Prompt, modelToUse),
@@ -277,7 +282,8 @@ export async function POST(request: NextRequest) {
             if (!prompt) {
                 return NextResponse.json({ error: 'Missing prompt' }, { status: 400 });
             }
-            const modelToUse = geminiModel || process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+            // const modelToUse = geminiModel || process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+            const modelToUse = 'gemini-2.5-flash-image';
             const img = await generateImageWithGemini(prompt, modelToUse);
             return NextResponse.json({ dataUrl: img.dataUrl, provider: 'gemini', model: modelToUse });
         }

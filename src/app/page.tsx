@@ -114,7 +114,7 @@ export default function Home() {
         <div className="mb-8">
           <h2 className="text-2xl font-semibold text-white mb-6">Games</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Rock Paper Scissors Tile */}
             <Link href="/games/rock-paper-scissors" className="group">
               <div className="bg-[#111111] rounded-lg border border-gray-800/50 hover:border-gray-700 transition-all duration-200 overflow-hidden">

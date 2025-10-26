@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spawn } from 'child_process';
+import sharp from 'sharp';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,6 +95,11 @@ async function fetchAsDataUrl(url: string, fallbackMime?: string): Promise<strin
     return `data:${mime};base64,${buf.toString('base64')}`;
 }
 
+function normalizeMemeUrl(u: string): string {
+    // Convert gifv to gif to ensure image playback in <img>
+    return u.replace(/\.gifv(?![a-z])/i, '.gif');
+}
+
 async function getRandomReferenceDataUrl(kind: 'hd' | 'meme' = 'hd', query?: string | null): Promise<{ dataUrl: string; source: string }> {
     if (kind === 'meme') {
         // Meme API: https://meme-api.com/gimme
@@ -101,7 +107,7 @@ async function getRandomReferenceDataUrl(kind: 'hd' | 'meme' = 'hd', query?: str
         if (!res.ok) throw new Error(`Failed to fetch meme: ${res.status}`);
         const json = await res.json();
         const previews: string[] = Array.isArray(json?.preview) ? json.preview : [];
-        const candidates = [json?.url, ...previews].filter(Boolean) as string[];
+        const candidates = [json?.url, ...previews].filter(Boolean).map((u: string) => normalizeMemeUrl(u)) as string[];
         // Prefer static image extensions
         const pick = candidates.find((u) => /\.(png|jpe?g|gif|webp)$/i.test(u)) || candidates[0];
         if (!pick) throw new Error('Meme API returned no usable image URL');
@@ -124,8 +130,7 @@ async function getRandomReferenceDataUrl(kind: 'hd' | 'meme' = 'hd', query?: str
 }
 
 async function generateImageWithGemini(prompt: string, modelOverride?: string) {
-    const apiKey = "AIzaSyDXr3wMP6pULhsafwUrEqqiXhrSXUUhqbk"
-;
+    const apiKey = process.env.GEMINI_API_KEY;
     // const model = modelOverride || process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
     const model = 'gemini-2.5-flash-image';
 
@@ -199,9 +204,26 @@ function parseDataUrlToInline(dataUrl: string): { mime_type: string; data: strin
     return { mime_type, data };
 }
 
+function parseDataUrl(dataUrl: string): { mime: string; data: string; buffer: Buffer } {
+    const match = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
+    if (!match) throw new Error('Invalid data URL format');
+    const mime = match[1];
+    const data = match[2];
+    const buffer = Buffer.from(data, 'base64');
+    return { mime, data, buffer };
+}
+
+async function ensureGeminiSupportedImageDataUrl(dataUrl: string): Promise<string> {
+    // Gemini judge does not accept some formats (e.g., image/gif). Normalize to PNG.
+    const { mime, buffer } = parseDataUrl(dataUrl);
+    if (mime === 'image/png' || mime === 'image/jpeg') return dataUrl;
+    // Convert to PNG (first frame for animated formats)
+    const png = await sharp(buffer).png().toBuffer();
+    return `data:image/png;base64,${png.toString('base64')}`;
+}
+
 async function scoreWithGemini(referenceDataUrl: string, player1DataUrl: string, player2DataUrl: string, modelOverride?: string) {
-    const apiKey = "AIzaSyDXr3wMP6pULhsafwUrEqqiXhrSXUUhqbk"
-;
+    const apiKey = process.env.GEMINI_API_KEY;
     // Ensure Gemini 2.5 flash (multimodal) is used for judging by default
     const model = modelOverride || 'gemini-2.5-flash';
     if (!apiKey) throw new Error('Missing GEMINI_API_KEY on server');
@@ -285,8 +307,13 @@ export async function POST(request: NextRequest) {
             const player1Image = im1.dataUrl;
             const player2Image = im2.dataUrl;
 
-            // Judge with Gemini
-            const judged = await scoreWithGemini(referenceImage, player1Image, player2Image);
+            // Judge with Gemini (normalize formats for Gemini)
+            const [normRef, normP1, normP2] = await Promise.all([
+                ensureGeminiSupportedImageDataUrl(referenceImage),
+                ensureGeminiSupportedImageDataUrl(player1Image),
+                ensureGeminiSupportedImageDataUrl(player2Image),
+            ]);
+            const judged = await scoreWithGemini(normRef, normP1, normP2);
             const player1Score = judged.player1Score;
             const player2Score = judged.player2Score;
             const diff = Math.abs(player1Score - player2Score);
@@ -331,7 +358,12 @@ export async function POST(request: NextRequest) {
                     { status: 400 },
                 );
             }
-            const judged = await scoreWithGemini(referenceImage, player1Image, player2Image, judgeModel);
+            const [normRef, normP1, normP2] = await Promise.all([
+                ensureGeminiSupportedImageDataUrl(referenceImage),
+                ensureGeminiSupportedImageDataUrl(player1Image),
+                ensureGeminiSupportedImageDataUrl(player2Image),
+            ]);
+            const judged = await scoreWithGemini(normRef, normP1, normP2, judgeModel);
             const player1Score = judged.player1Score;
             const player2Score = judged.player2Score;
             const diff = Math.abs(player1Score - player2Score);
@@ -352,7 +384,12 @@ export async function POST(request: NextRequest) {
                     { status: 400 },
                 );
             }
-            const judged = await scoreWithGemini(referenceImage, player1Image, player2Image);
+            const [normRef, normP1, normP2] = await Promise.all([
+                ensureGeminiSupportedImageDataUrl(referenceImage),
+                ensureGeminiSupportedImageDataUrl(player1Image),
+                ensureGeminiSupportedImageDataUrl(player2Image),
+            ]);
+            const judged = await scoreWithGemini(normRef, normP1, normP2);
             const player1Score = judged.player1Score;
             const player2Score = judged.player2Score;
             const diff = Math.abs(player1Score - player2Score);

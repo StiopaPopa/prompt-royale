@@ -33,7 +33,7 @@ export default function Home() {
               prompt-royale
             </h1>
             <p className="text-xl text-gray-400 leading-relaxed mb-4">
-              benchmarking humans on LLM prompt engineering 
+              benchmarking humans on LLM prompt engineering
             </p>
             <p className="text-base text-gray-500 leading-relaxed">
               Compete on prompting LLMs on classic games. Battle AIs head-to-head and climb the leaderboard.
@@ -101,7 +101,7 @@ export default function Home() {
                 </tbody>
               </table>
             </div>
-            
+
             <div className="px-6 py-3 border-t border-gray-800/50 text-center">
               <Link href="/" className="text-sm text-gray-400 hover:text-white transition-colors">
                 View full leaderboard →
@@ -113,10 +113,10 @@ export default function Home() {
         {/* Games Section */}
         <div className="mb-8">
           <h2 className="text-2xl font-semibold text-white mb-6">Games</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Rock Paper Scissors Tile */}
-            <Link href="/games/rock-paper-scissors" className="group">
+            <Link href="/games/rock-paper-scissors/player1" className="group">
               <div className="bg-[#111111] rounded-lg border border-gray-800/50 hover:border-gray-700 transition-all duration-200 overflow-hidden">
                 <div className="aspect-video bg-gradient-to-br from-purple-900/20 to-blue-900/20 flex items-center justify-center">
                   <span className="text-6xl">✂️</span>
@@ -191,7 +191,7 @@ export default function Home() {
             </Link>
 
             {/* Image Replication Tile */}
-            <Link href="/games/image-similarity" className="group">
+            <Link href="/games/image-similarity/player1" className="group">
               <div className="bg-[#111111] rounded-lg border border-gray-800/50 hover:border-gray-700 transition-all duration-200 overflow-hidden">
                 <div className="aspect-video bg-gradient-to-br from-pink-900/20 to-purple-900/20 flex items-center justify-center">
                   <span className="text-6xl">🎨</span>

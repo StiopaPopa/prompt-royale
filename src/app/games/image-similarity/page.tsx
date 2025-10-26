@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 type Scores = { p1: number; p2: number } | null;
 
@@ -42,6 +43,23 @@ export default function ImageSimilarityPage() {
     const [commentaryEnabled, setCommentaryEnabled] = useState(true);
     const [currentCommentary, setCurrentCommentary] = useState<string>("");
     const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+    const [isStep2, setIsStep2] = useState(false);
+    const router = useRouter();
+
+    useEffect(() => {
+        // Load step-1 data if available
+        try {
+            const storedRef = sessionStorage.getItem('imageSim.reference');
+            const storedP1 = sessionStorage.getItem('imageSim.p1Prompt');
+            if (storedRef && storedRef.startsWith('data:image/')) {
+                setReferenceImage(storedRef);
+            }
+            if (storedP1) {
+                setP1Prompt(storedP1);
+                setIsStep2(true);
+            }
+        } catch { }
+    }, []);
 
     // Function to generate and play end-of-game summary
     const generateEndSummary = async (winner: 'player1' | 'player2' | 'tie', p1Score: number, p2Score: number, reasoning: string): Promise<void> => {
@@ -164,6 +182,13 @@ export default function ImageSimilarityPage() {
         setError(null);
         setP1Prompt('');
         setP2Prompt('');
+        try {
+            sessionStorage.removeItem('imageSim.reference');
+            sessionStorage.removeItem('imageSim.p1Prompt');
+            sessionStorage.removeItem('imageSim.refSource');
+        } catch { }
+        // Go back to Player 1 setup page
+        router.push('/games/image-similarity/player1');
     };
 
 
@@ -237,15 +262,15 @@ export default function ImageSimilarityPage() {
                             <div className="space-y-3">
                                 <div>
                                     <label className="block text-sm text-gray-400 mb-2">Reference Source</label>
-                                        <select
-                                            value={refSource}
-                                            onChange={(e) => setRefSource((e.target.value as 'hd' | 'meme'))}
-                                            disabled={isFindingRef || isLoading}
+                                    <select
+                                        value={refSource}
+                                        onChange={(e) => setRefSource((e.target.value as 'hd' | 'meme'))}
+                                        disabled={isFindingRef || isLoading}
                                         className="w-full px-3 py-2 bg-black/40 border border-gray-800 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500/50"
-                                        >
-                                            <option value="hd">HD Photo</option>
-                                            <option value="meme">Meme</option>
-                                        </select>
+                                    >
+                                        <option value="hd">HD Photo</option>
+                                        <option value="meme">Meme</option>
+                                    </select>
                                 </div>
                                 <button
                                     onClick={async () => {
@@ -255,6 +280,9 @@ export default function ImageSimilarityPage() {
                                             const res = await fetch(`/api/image-similarity?random=1&kind=${refSource}`);
                                             if (!res.ok) throw new Error(await res.text());
                                             const data: { dataUrl: string } = await res.json();
+                                            if (!data.dataUrl || !data.dataUrl.startsWith('data:image/')) {
+                                                throw new Error('Reference fetch did not return an image');
+                                            }
                                             setReferenceImage(data.dataUrl);
                                         } catch (e) {
                                             console.error(e);
@@ -271,37 +299,8 @@ export default function ImageSimilarityPage() {
                         </div>
                     </div>
 
-                    {/* Player Prompts Section */}
+                    {/* Player Prompts Section (Player 2 only on this page) */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        {/* Player 1 */}
-                        <div className="bg-[#111111] rounded-lg p-6 border border-blue-500/30">
-                            <h2 className="text-xl font-semibold text-blue-400 mb-4">
-                                Player 1
-                            </h2>
-                            <label className="block text-gray-400 mb-2 text-sm">
-                                Enter your image description:
-                            </label>
-                            <textarea
-                                placeholder="Describe the image for Player 1 to generate"
-                                value={p1Prompt}
-                                onChange={(e) => setP1Prompt(e.target.value)}
-                                rows={4}
-                                className="w-full bg-black/40 border border-gray-800 rounded-lg p-4 text-white text-sm focus:outline-none focus:border-blue-500/50 resize-none placeholder:text-gray-600 mb-4"
-                            />
-                            {player1Image && (
-                                <div className="relative aspect-square w-full bg-black/40 border-2 border-blue-500/60 rounded-lg overflow-hidden">
-                                    <img src={player1Image} alt="Player 1" className="w-full h-full object-cover" />
-                                    <button
-                                        type="button"
-                                        onClick={() => setZoomSrc(player1Image)}
-                                        className="absolute top-2 right-2 px-2.5 py-1.5 text-xs bg-black/60 hover:bg-black/80 border border-white/20 rounded"
-                                    >
-                                        🔍
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
                         {/* Player 2 */}
                         <div className="bg-[#111111] rounded-lg p-6 border border-red-500/30">
                             <h2 className="text-xl font-semibold text-red-400 mb-4">
@@ -315,7 +314,7 @@ export default function ImageSimilarityPage() {
                                 value={p2Prompt}
                                 onChange={(e) => setP2Prompt(e.target.value)}
                                 rows={4}
-                                className="w-full bg-black/40 border border-gray-800 rounded-lg p-4 text-white text-sm focus:outline-none focus:border-red-500/50 resize-none placeholder:text-gray-600 mb-4"
+                                className="w-full h-40 bg-black/40 border border-gray-800 rounded-lg p-4 text-white text-sm focus:outline-none focus:border-red-500/50 resize-none placeholder:text-gray-600 mb-4"
                             />
                             {player2Image && (
                                 <div className="relative aspect-square w-full bg-black/40 border-2 border-red-500/60 rounded-lg overflow-hidden">
@@ -330,7 +329,23 @@ export default function ImageSimilarityPage() {
                                 </div>
                             )}
                         </div>
-                </div>
+                        {/* Placeholder for grid balance on md+ screens */}
+                        <div className="hidden md:block" />
+                    </div>
+
+                    {/* Prompts overview: show both side by side once both are provided */}
+                    {p1Prompt.trim() && p2Prompt.trim() && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            <div className="bg-[#111111] border border-blue-500/30 rounded-lg p-6">
+                                <h3 className="text-blue-400 text-sm font-medium mb-3 uppercase tracking-wider">Player 1 Prompt</h3>
+                                <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">{p1Prompt}</div>
+                            </div>
+                            <div className="bg-[#111111] border border-red-500/30 rounded-lg p-6">
+                                <h3 className="text-red-400 text-sm font-medium mb-3 uppercase tracking-wider">Player 2 Prompt</h3>
+                                <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">{p2Prompt}</div>
+                            </div>
+                        </div>
+                    )}
 
                     {error && (
                         <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-4 mb-6 text-center">
@@ -338,14 +353,21 @@ export default function ImageSimilarityPage() {
                         </div>
                     )}
 
-                    <div className="text-center">
-                    <button
-                        onClick={compareImages}
-                        disabled={!referenceImage || !p1Prompt.trim() || !p2Prompt.trim() || isLoading || isFindingRef}
-                            className="bg-white text-black hover:bg-gray-100 font-medium py-3 px-10 rounded-lg text-base transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
+                    <div className="mt-6 space-y-3">
+                        <button
+                            onClick={compareImages}
+                            disabled={!referenceImage || !p1Prompt.trim() || !p2Prompt.trim() || isLoading || isFindingRef}
+                            className="w-full bg-white text-black hover:bg-gray-100 font-medium py-3 rounded-lg text-base transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
                             {isFindingRef ? 'Finding image...' : (isLoading ? 'Generating...' : 'Generate and Compare')}
-                    </button>
+                        </button>
+                        <button
+                            onClick={reset}
+                            disabled={isLoading}
+                            className="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 rounded-lg text-base transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Reset
+                        </button>
                     </div>
                 </div>
 
@@ -372,7 +394,7 @@ export default function ImageSimilarityPage() {
                                     className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
                                     style={{ animationDelay: "300ms" }}
                                 ></div>
-                        </div>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -383,9 +405,8 @@ export default function ImageSimilarityPage() {
                             {/* Winner Banner */}
                             {winner && (
                                 <div className="bg-[#111111] border border-gray-800/50 rounded-lg p-8">
-                                    <div className={`text-3xl font-semibold text-center ${
-                                        winner === 'tie' ? 'text-yellow-400' : winner === 'player1' ? 'text-blue-400' : 'text-red-400'
-                                    }`}>
+                                    <div className={`text-3xl font-semibold text-center ${winner === 'tie' ? 'text-yellow-400' : winner === 'player1' ? 'text-blue-400' : 'text-red-400'
+                                        }`}>
                                         {winner === 'tie' ? 'It\'s a Tie' : (winner === 'player1' ? 'Player 1 Wins' : 'Player 2 Wins')}
                                     </div>
                                 </div>
@@ -406,8 +427,8 @@ export default function ImageSimilarityPage() {
                                                 {isPlayingAudio && (
                                                     <div className="flex gap-1">
                                                         <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse"></div>
-                                                        <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: "150ms"}}></div>
-                                                        <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: "300ms"}}></div>
+                                                        <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: "150ms" }}></div>
+                                                        <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: "300ms" }}></div>
                                                     </div>
                                                 )}
                                             </div>
@@ -418,7 +439,7 @@ export default function ImageSimilarityPage() {
                             )}
 
                             {/* Score Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <ScoreCard label="Player 1" score={scores.p1} color="bg-blue-400" />
                                 <ScoreCard label="Player 2" score={scores.p2} color="bg-red-400" />
                             </div>
@@ -432,13 +453,13 @@ export default function ImageSimilarityPage() {
                                     {judgeModel && (
                                         <div>
                                             <span className="text-gray-500">Judge Model:</span> <span className="text-white">{judgeModel}</span>
-                            </div>
-                        )}
+                                        </div>
+                                    )}
                                 </div>
-                        </div>
+                            </div>
 
                             {/* Reasoning */}
-                        {reasoning && (
+                            {reasoning && (
                                 <div className="bg-[#111111] border border-gray-800/50 rounded-lg p-6">
                                     <div className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-3">Judge Reasoning</div>
                                     <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{reasoning}</div>

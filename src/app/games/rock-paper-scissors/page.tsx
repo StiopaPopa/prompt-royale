@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type Move = "rock" | "paper" | "scissors";
 
@@ -44,6 +45,19 @@ export default function RockPaperScissorsPage() {
   const [commentaryEnabled, setCommentaryEnabled] = useState(true);
   const [currentCommentary, setCurrentCommentary] = useState<string>("");
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isStep2, setIsStep2] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    // Load Player 1 prompt from session if present
+    try {
+      const p1 = sessionStorage.getItem("rps.p1Prompt");
+      if (p1) {
+        setPlayer1Prompt(p1);
+        setIsStep2(true);
+      }
+    } catch { }
+  }, []);
 
   // Function to generate and play end-of-game summary
   const generateEndSummary = async (result: GameResult): Promise<void> => {
@@ -156,6 +170,11 @@ export default function RockPaperScissorsPage() {
     setPlayer1Prompt("");
     setPlayer2Prompt("");
     setError(null);
+    try {
+      sessionStorage.removeItem("rps.p1Prompt");
+    } catch { }
+    // Return to Player 1 step
+    router.push('/games/rock-paper-scissors/player1');
   };
 
   const getCurrentScores = () => {
@@ -206,43 +225,25 @@ export default function RockPaperScissorsPage() {
           <h1 className="text-4xl font-semibold text-white mb-2">
             Rock Paper Scissors Battle
           </h1>
-          <p className="text-gray-400">10 rounds of AI vs AI combat</p>
+          <p className="text-gray-400">Step 2: Enter Player 2's strategy</p>
         </div>
 
         {gameState === "setup" && (
           <div className="max-w-4xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              {/* Player 1 */}
-              <div className="bg-[#111111] rounded-lg p-6 border border-blue-500/30">
-                <h2 className="text-xl font-semibold text-blue-400 mb-4">
-                  Player 1
-                </h2>
-                <label className="block text-gray-400 mb-2 text-sm">
-                  Enter your strategy prompt:
-                </label>
-                <textarea
-                  value={player1Prompt}
-                  onChange={(e) => setPlayer1Prompt(e.target.value)}
-                  className="w-full h-40 bg-black/40 border border-gray-800 rounded-lg p-4 text-white text-sm focus:outline-none focus:border-blue-500/50 resize-none placeholder:text-gray-600"
-                  placeholder="Example: If I won the previous round, randomize between the other 2 moves. If I lost, stick with the same move. If it's a tie, play rock."
-                />
-              </div>
-
-              {/* Player 2 */}
-              <div className="bg-[#111111] rounded-lg p-6 border border-red-500/30">
-                <h2 className="text-xl font-semibold text-red-400 mb-4">
-                  Player 2
-                </h2>
-                <label className="block text-gray-400 mb-2 text-sm">
-                  Enter your strategy prompt:
-                </label>
-                <textarea
-                  value={player2Prompt}
-                  onChange={(e) => setPlayer2Prompt(e.target.value)}
-                  className="w-full h-40 bg-black/40 border border-gray-800 rounded-lg p-4 text-white text-sm focus:outline-none focus:border-red-500/50 resize-none placeholder:text-gray-600"
-                  placeholder="Example: Always play what would beat my opponent's last move. If it's the first round, play paper."
-                />
-              </div>
+            {/* Player 2 card */}
+            <div className="bg-[#111111] rounded-lg p-6 border border-red-500/30 mb-8">
+              <h2 className="text-xl font-semibold text-red-400 mb-4">
+                Player 2
+              </h2>
+              <label className="block text-gray-400 mb-2 text-sm">
+                Enter your strategy prompt:
+              </label>
+              <textarea
+                value={player2Prompt}
+                onChange={(e) => setPlayer2Prompt(e.target.value)}
+                className="w-full h-40 bg-black/40 border border-gray-800 rounded-lg p-4 text-white text-sm focus:outline-none focus:border-red-500/50 resize-none placeholder:text-gray-600"
+                placeholder="Example: Always play what would beat my opponent's last move. If it's the first round, play paper."
+              />
             </div>
 
             {error && (
@@ -251,11 +252,11 @@ export default function RockPaperScissorsPage() {
               </div>
             )}
 
-            <div className="text-center">
+            <div className="mt-6">
               <button
                 onClick={startGame}
                 disabled={isLoading}
-                className="bg-white text-black hover:bg-gray-100 font-medium py-3 px-10 rounded-lg text-base transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-white text-black hover:bg-gray-100 font-medium py-3 rounded-lg text-base transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? "Starting Battle..." : "Start Battle"}
               </button>
@@ -383,7 +384,7 @@ export default function RockPaperScissorsPage() {
                         <div className="text-8xl mb-4 animate-bounce">
                           {
                             moveEmojis[
-                              gameResult.results[currentRound - 1].player1Move
+                            gameResult.results[currentRound - 1].player1Move
                             ]
                           }
                         </div>
@@ -400,7 +401,7 @@ export default function RockPaperScissorsPage() {
                         <div className="text-8xl mb-4 animate-bounce">
                           {
                             moveEmojis[
-                              gameResult.results[currentRound - 1].player2Move
+                            gameResult.results[currentRound - 1].player2Move
                             ]
                           }
                         </div>
@@ -418,15 +419,14 @@ export default function RockPaperScissorsPage() {
                         </div>
                       ) : (
                         <div
-                          className={`text-xl font-semibold ${
-                            gameResult.results[currentRound - 1].winner ===
+                          className={`text-xl font-semibold ${gameResult.results[currentRound - 1].winner ===
                             "player1"
-                              ? "text-blue-400"
-                              : "text-red-400"
-                          }`}
+                            ? "text-blue-400"
+                            : "text-red-400"
+                            }`}
                         >
                           {gameResult.results[currentRound - 1].winner ===
-                          "player1"
+                            "player1"
                             ? "Player 1 Wins"
                             : "Player 2 Wins"}
                         </div>
@@ -463,8 +463,8 @@ export default function RockPaperScissorsPage() {
                         {isPlayingAudio && (
                           <div className="flex gap-1">
                             <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse"></div>
-                            <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: "150ms"}}></div>
-                            <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: "300ms"}}></div>
+                            <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: "150ms" }}></div>
+                            <div className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: "300ms" }}></div>
                           </div>
                         )}
                       </div>
@@ -535,19 +535,18 @@ export default function RockPaperScissorsPage() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span
-                                className={`text-sm font-medium ${
-                                  result.winner === "tie"
-                                    ? "text-yellow-400"
-                                    : result.winner === "player1"
+                                className={`text-sm font-medium ${result.winner === "tie"
+                                  ? "text-yellow-400"
+                                  : result.winner === "player1"
                                     ? "text-blue-400"
                                     : "text-red-400"
-                                }`}
+                                  }`}
                               >
                                 {result.winner === "tie"
                                   ? "Tie"
                                   : result.winner === "player1"
-                                  ? "P1"
-                                  : "P2"}
+                                    ? "P1"
+                                    : "P2"}
                               </span>
                             </td>
                           </tr>
@@ -555,7 +554,7 @@ export default function RockPaperScissorsPage() {
                       </tbody>
                     </table>
                   </div>
-                  
+
                   {showReasonings && (
                     <div className="p-6 border-t border-gray-800/50 space-y-4">
                       {gameResult.results.map((result) => (

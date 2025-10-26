@@ -1,5 +1,24 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## 🚀 Lava Payments Integration
+
+This project integrates **Lava Payments** as an AI gateway for the Image Similarity game, providing automatic usage tracking, cost monitoring, and billing capabilities.
+
+### Quick Setup
+
+1. **Get your Lava token:** [Dashboard > Secret Keys](https://www.lavapayments.com/dashboard/build/secret-keys)
+2. **Add to `.env.local`:**
+   ```bash
+   LAVA_FORWARD_TOKEN=your_token_here
+   LAVA_BASE_URL=https://api.lavapayments.com/v1
+   ```
+3. **Run the app:** `npm run dev`
+4. **Monitor usage:** [Lava Dashboard > Explore](https://www.lavapayments.com/dashboard/monetize/explore)
+
+📖 **Full documentation:** See [LAVA_INTEGRATION.md](./LAVA_INTEGRATION.md)
+
+---
+
 ## Getting Started
 
 First, run the development server:

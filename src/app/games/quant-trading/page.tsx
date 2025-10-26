@@ -49,6 +49,67 @@ export default function QuantTradingPage() {
   const [priceHistory, setPriceHistory] = useState<
     { price: number; date: string }[]
   >([]);
+  const [currentCommentary, setCurrentCommentary] = useState<string>("");
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+  const generateEndSummary = async (result: GameResult): Promise<void> => {
+    return new Promise(async (resolve) => {
+      try {
+        // Step 1: Generate end summary text from API
+        const summaryResponse = await fetch("/api/quant-trading-end-summary", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            winner: result.winner,
+            winnerReason: result.winnerReason,
+            player1Strategy: result.player1.strategy,
+            player2Strategy: result.player2.strategy,
+            player1FinalPnl: result.player1.finalPnl,
+            player2FinalPnl: result.player2.finalPnl,
+            player1TotalReturn: result.player1.totalReturn,
+            player2TotalReturn: result.player2.totalReturn,
+            asset: result.asset,
+          }),
+        });
+
+        const { summary } = await summaryResponse.json();
+        setCurrentCommentary(summary);
+
+        // Step 2: Convert summary text to audio via TTS
+        const ttsResponse = await fetch("/api/text-to-speech", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ text: summary }),
+        });
+
+        const audioBlob = await ttsResponse.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        // Step 3: Play audio and wait for completion
+        setIsPlayingAudio(true);
+        audio.onended = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        audio.onerror = () => {
+          setIsPlayingAudio(false);
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        await audio.play();
+      } catch (error) {
+        console.error("Error generating end summary:", error);
+        setIsPlayingAudio(false);
+        resolve();
+      }
+    });
+  };
 
   const handleStartGame = async () => {
     if (!player1Strategy.trim() || !player2Strategy.trim()) {
@@ -205,20 +266,25 @@ export default function QuantTradingPage() {
 
       // Update final result
       if (gameEnd) {
-        setResult((prev) => ({
-          ...prev!,
-          winner: gameEnd!.winner,
-          winnerReason: gameEnd!.winnerReason,
-          player1: gameEnd!.player1,
-          player2: gameEnd!.player2,
-          asset: gameEnd!.asset,
-          startPrice: gameEnd!.startPrice,
-          endPrice: gameEnd!.endPrice,
-          totalReturn: gameEnd!.totalReturn,
-        }));
-      }
+        const finalResult = {
+          player1: gameEnd.player1,
+          player2: gameEnd.player2,
+          winner: gameEnd.winner,
+          winnerReason: gameEnd.winnerReason,
+          asset: gameEnd.asset,
+          startPrice: gameEnd.startPrice,
+          endPrice: gameEnd.endPrice,
+          totalReturn: gameEnd.totalReturn,
+        };
 
-      setPhase("finished");
+        setResult(finalResult);
+        setPhase("finished");
+
+        // Generate end summary with TTS
+        await generateEndSummary(finalResult);
+      } else {
+        setPhase("finished");
+      }
     } catch (error) {
       console.error("Error playing game:", error);
       alert("An error occurred while playing the game. Please try again.");
@@ -232,6 +298,8 @@ export default function QuantTradingPage() {
     setPlayer2Strategy("");
     setResult(null);
     setShowPlayer1Decisions(true);
+    setCurrentCommentary("");
+    setIsPlayingAudio(false);
     setShowPlayer2Decisions(true);
     setPriceHistory([]);
   };
@@ -790,6 +858,27 @@ export default function QuantTradingPage() {
               </div>
               <div className="text-sm text-gray-400 mt-2">{winnerReason}</div>
             </div>
+
+            {/* Commentary Section */}
+            {currentCommentary && (
+              <div className="mb-6">
+                <div className="bg-black/40 border border-gray-800 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="text-2xl">
+                      {isPlayingAudio ? "🔊" : "💬"}
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                        {isPlayingAudio ? "Playing Commentary..." : "Game Summary"}
+                      </div>
+                      <div className="text-white text-sm leading-relaxed">
+                        {currentCommentary}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Results Summary */}
             <div className="grid grid-cols-3 gap-6 max-w-2xl mx-auto mb-6">

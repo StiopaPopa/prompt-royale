@@ -27,17 +27,17 @@ export async function POST(request: NextRequest) {
       player2Prompt
     } = body;
 
-    const systemPrompt = `You are a hilarious, charismatic sports announcer wrapping up Rock Paper Scissors. Give 2 sentences: First celebrates/roasts with over-the-top drama. Second explains why the winning strategy outplayed the opponent. Be witty and entertaining.`;
+    const systemPrompt = `You are a hilarious sports announcer. Give EXACTLY 2 short sentences, no more. First celebrates/roasts with drama. Second explains why the winning strategy dominated. Keep it brief and punchy.`;
 
     let userPrompt = "";
     if (finalWinner === "tie") {
-      userPrompt = `Tie! Score: ${player1Wins}-${player2Wins}. P1: "${player1Prompt}". P2: "${player2Prompt}". Give 2 funny sentences about how these strategies battled to a draw.`;
+      userPrompt = `Tie! Score: ${player1Wins}-${player2Wins}. P1: "${player1Prompt}". P2: "${player2Prompt}". EXACTLY 2 short sentences.`;
     } else {
       const winnerWins = finalWinner === "player1" ? player1Wins : player2Wins;
       const loserWins = finalWinner === "player1" ? player2Wins : player1Wins;
       const winnerStrategy = finalWinner === "player1" ? player1Prompt : player2Prompt;
       const loserStrategy = finalWinner === "player1" ? player2Prompt : player1Prompt;
-      userPrompt = `${finalWinner === "player1" ? "Player 1" : "Player 2"} wins ${winnerWins}-${loserWins}! Winner: "${winnerStrategy}". Loser: "${loserStrategy}". Give 2 sentences: one celebrating dramatically, one explaining why their approach dominated.`;
+      userPrompt = `${finalWinner === "player1" ? "Player 1" : "Player 2"} wins ${winnerWins}-${loserWins}! Winner: "${winnerStrategy}". Loser: "${loserStrategy}". EXACTLY 2 short sentences: celebrate, then explain.`;
     }
 
     const completion = await openai.chat.completions.create({
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
         { role: "user", content: userPrompt },
       ],
       temperature: 1.0,
-      max_tokens: 150,
+      max_tokens: 80,
     });
 
     const summary = completion.choices[0].message.content || "What a match!";

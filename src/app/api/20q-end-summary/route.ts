@@ -33,17 +33,17 @@ export async function POST(request: NextRequest) {
       player2Correct
     } = body;
 
-    const systemPrompt = `You are a hilarious, charismatic game show host wrapping up 20 Questions. Give 2 sentences: First celebrates/roasts with drama and humor. Second explains why the winning questioning strategy was superior. Be witty and insightful.`;
+    const systemPrompt = `You are a hilarious game show host. Give EXACTLY 2 short sentences, no more. First celebrates/roasts dramatically. Second explains why the winning strategy was smarter. Keep it brief and punchy.`;
 
     let userPrompt = "";
     if (winner === "tie") {
-      userPrompt = `Tie! Object: "${secretObject}". P1: ${player1QuestionsUsed} questions (${player1Correct ? "correct" : "wrong"}). P2: ${player2QuestionsUsed} questions (${player2Correct ? "correct" : "wrong"}). P1 strategy: "${player1Policy}". P2 strategy: "${player2Policy}". Give 2 funny sentences about how these strategies tied.`;
+      userPrompt = `Tie! Object: "${secretObject}". P1: ${player1QuestionsUsed} questions (${player1Correct ? "correct" : "wrong"}). P2: ${player2QuestionsUsed} questions (${player2Correct ? "correct" : "wrong"}). EXACTLY 2 short sentences.`;
     } else {
       const winnerNum = winner;
       const winnerPolicy = winner === 1 ? player1Policy : player2Policy;
       const loserPolicy = winner === 1 ? player2Policy : player1Policy;
       const winnerQuestions = winner === 1 ? player1QuestionsUsed : player2QuestionsUsed;
-      userPrompt = `Player ${winnerNum} wins! Object: "${secretObject}". Winner used ${winnerQuestions} questions. Winner strategy: "${winnerPolicy}". Loser strategy: "${loserPolicy}". Give 2 sentences: one celebrating, one explaining why their questioning approach was smarter.`;
+      userPrompt = `Player ${winnerNum} wins! Object: "${secretObject}". Winner used ${winnerQuestions} questions. Winner: "${winnerPolicy}". Loser: "${loserPolicy}". EXACTLY 2 short sentences: celebrate, then explain.`;
     }
 
     const completion = await openai.chat.completions.create({
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
         { role: "user", content: userPrompt },
       ],
       temperature: 1.0,
-      max_tokens: 150,
+      max_tokens: 80,
     });
 
     const summary = completion.choices[0].message.content || "Great game!";

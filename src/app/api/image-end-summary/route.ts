@@ -18,15 +18,15 @@ export async function POST(request: NextRequest) {
     const body: EndSummaryRequest = await request.json();
     const { winner, player1Score, player2Score, reasoning } = body;
 
-    const systemPrompt = `You are a hilarious, charismatic art critic wrapping up Image Similarity. Give 2 sentences: First celebrates/roasts the result with dramatic flair. Second explains why the winning image captured the essence better (using the judge's reasoning). Be witty and insightful.`;
+    const systemPrompt = `You are a hilarious art critic. Give EXACTLY 2 short sentences, no more. First celebrates/roasts with flair. Second explains why the winning image was better. Keep it brief and punchy.`;
 
     let userPrompt = "";
     if (winner === "tie") {
-      userPrompt = `Tie! Both scored ${player1Score}/10. Judge said: "${reasoning}". Give 2 funny sentences about these equally matched attempts.`;
+      userPrompt = `Tie! Both scored ${player1Score}/10. Judge said: "${reasoning}". EXACTLY 2 short sentences.`;
     } else {
       const winnerScore = winner === "player1" ? player1Score : player2Score;
       const loserScore = winner === "player1" ? player2Score : player1Score;
-      userPrompt = `${winner === "player1" ? "Player 1" : "Player 2"} wins! ${winnerScore}/10 vs ${loserScore}/10. Judge said: "${reasoning}". Give 2 sentences: one celebrating/roasting, one explaining why the winner's prompt captured it better.`;
+      userPrompt = `${winner === "player1" ? "Player 1" : "Player 2"} wins! ${winnerScore}/10 vs ${loserScore}/10. Judge said: "${reasoning}". EXACTLY 2 short sentences: celebrate, then explain.`;
     }
 
     const completion = await openai.chat.completions.create({
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
         { role: "user", content: userPrompt },
       ],
       temperature: 1.0,
-      max_tokens: 150,
+      max_tokens: 80,
     });
 
     const summary = completion.choices[0].message.content || "Amazing images!";
